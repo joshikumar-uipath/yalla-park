@@ -1,0 +1,83 @@
+name: DXBPark
+options:
+  bundleIdPrefix: com.avjoshi
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+targets:
+  DXBPark:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.avjoshi.dxbpark
+        DEVELOPMENT_TEAM: YJFN5RLHZH
+        CODE_SIGN_STYLE: Automatic
+        MARKETING_VERSION: "0.2.0"
+        CURRENT_PROJECT_VERSION: "4"
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+    dependencies:
+      - target: YallaParkWidgets
+        embed: true
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: Yalla Park
+        UILaunchScreen: {}
+        NSLocationWhenInUseUsageDescription: "Yalla Park uses your location once, when you park, to recognize the parking zone and show your car on the map. It never leaves your phone."
+        CFBundleURLTypes:
+          - CFBundleURLName: com.avjoshi.dxbpark
+            CFBundleURLSchemes: [dxbpark]
+        ITSAppUsesNonExemptEncryption: false
+        NSSupportsLiveActivities: true
+  YallaParkWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widgets
+      - path: Sources/ParkingActivity.swift
+      - path: Sources/Theme.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.avjoshi.dxbpark.widgets
+        DEVELOPMENT_TEAM: YJFN5RLHZH
+        CODE_SIGN_STYLE: Automatic
+        MARKETING_VERSION: "0.2.0"
+        CURRENT_PROJECT_VERSION: "4"
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: YES
+    info:
+      path: Widgets/Info.plist
+      properties:
+        CFBundleDisplayName: Yalla Park
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+  DXBParkTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests
+    dependencies:
+      - target: DXBPark
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.avjoshi.dxbpark.tests
+        DEVELOPMENT_TEAM: YJFN5RLHZH
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  DXBPark:
+    build:
+      targets:
+        DXBPark: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - DXBParkTests
