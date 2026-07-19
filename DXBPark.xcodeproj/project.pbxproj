@@ -14,6 +14,8 @@
 		20C01D2680A87BE319BCF25B /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F52A1B2D5416A306CC55D19 /* LocationService.swift */; };
 		418B942645445A49336A308B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EB94186009CF99B00169782 /* SettingsView.swift */; };
 		4EF40B64AA6F49F2EEF5ECFA /* ParkinRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 693D09103F7F26DD21D4ECAA /* ParkinRules.swift */; };
+		57E52A9D364D14DD2709C99F /* WidgetSessionStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0476A883698084864D2DD39B /* WidgetSessionStoreTests.swift */; };
+		5C6058CC1E1D03F4BB3F20F9 /* WidgetSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D85D892B9AF0E162FAAB3845 /* WidgetSessionStore.swift */; };
 		5E35725253EC503CA2ABBD4A /* SpotsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FCD76013188A07DBA77091F /* SpotsView.swift */; };
 		6F67F70D6A73237B98B7FD78 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 605D2F35E8612E4B2C105D5C /* LiveActivityManager.swift */; };
 		76D745A94DBDC501F006117C /* PassView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F60F86DB9397E82F0848B4A /* PassView.swift */; };
@@ -28,6 +30,7 @@
 		DE559DEF8C65F8C67773CF26 /* ParkinRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3185B90B9F4434D858D5CCA /* ParkinRulesTests.swift */; };
 		E7D513DB9123B0E66B17B5D6 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58D0FDA123340B78875DB168 /* NotificationManager.swift */; };
 		ED53E47EE855CE9DFB6E5A8B /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6A727A77AC189A5CD393978 /* Models.swift */; };
+		F69EF9F7D4FA2459740F6ABC /* WidgetSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D85D892B9AF0E162FAAB3845 /* WidgetSessionStore.swift */; };
 		FA415D687B132E66F9E79C20 /* MessageComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94896178C92669C9D17DEC63 /* MessageComposer.swift */; };
 /* End PBXBuildFile section */
 
@@ -63,6 +66,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0476A883698084864D2DD39B /* WidgetSessionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSessionStoreTests.swift; sourceTree = "<group>"; };
 		0F52A1B2D5416A306CC55D19 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		3CB4DF0F43CAB9E68CA27B70 /* DXBParkTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DXBParkTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3EB94186009CF99B00169782 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -70,6 +74,7 @@
 		58D0FDA123340B78875DB168 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		5BC94D6118A506B4D3ADB05A /* ConfirmPaidSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmPaidSheet.swift; sourceTree = "<group>"; };
 		605D2F35E8612E4B2C105D5C /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
+		62F2A73C5EDD917B0B2823F0 /* DXBPark.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DXBPark.entitlements; sourceTree = "<group>"; };
 		64F7A94B9B0B3F28051F4343 /* YallaParkWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YallaParkWidgets.swift; sourceTree = "<group>"; };
 		66C78CC69BDCEAF660325E96 /* AppIntentsSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIntentsSupport.swift; sourceTree = "<group>"; };
 		693D09103F7F26DD21D4ECAA /* ParkinRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkinRules.swift; sourceTree = "<group>"; };
@@ -80,10 +85,12 @@
 		8FCD76013188A07DBA77091F /* SpotsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotsView.swift; sourceTree = "<group>"; };
 		94896178C92669C9D17DEC63 /* MessageComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageComposer.swift; sourceTree = "<group>"; };
 		9F60F86DB9397E82F0848B4A /* PassView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassView.swift; sourceTree = "<group>"; };
+		A83EEBECE526FD2784CBD928 /* YallaParkWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = YallaParkWidgets.entitlements; sourceTree = "<group>"; };
 		B0EFE03B718B1BA8F1C9E8F1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B711B555406FEEA2B191E3E9 /* YallaParkWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = YallaParkWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B74C890D634CF91603A159E1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C3185B90B9F4434D858D5CCA /* ParkinRulesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkinRulesTests.swift; sourceTree = "<group>"; };
+		D85D892B9AF0E162FAAB3845 /* WidgetSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSessionStore.swift; sourceTree = "<group>"; };
 		E1EB1DD7EDA76FBEA7B6E466 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		F6A727A77AC189A5CD393978 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		F7FDC965098FF74EAC824B55 /* DXBParkApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DXBParkApp.swift; sourceTree = "<group>"; };
@@ -96,6 +103,7 @@
 				66C78CC69BDCEAF660325E96 /* AppIntentsSupport.swift */,
 				B0EFE03B718B1BA8F1C9E8F1 /* Assets.xcassets */,
 				5BC94D6118A506B4D3ADB05A /* ConfirmPaidSheet.swift */,
+				62F2A73C5EDD917B0B2823F0 /* DXBPark.entitlements */,
 				F7FDC965098FF74EAC824B55 /* DXBParkApp.swift */,
 				7284CF89BC16DFD8B03F8988 /* HomeView.swift */,
 				B74C890D634CF91603A159E1 /* Info.plist */,
@@ -111,6 +119,7 @@
 				3EB94186009CF99B00169782 /* SettingsView.swift */,
 				8FCD76013188A07DBA77091F /* SpotsView.swift */,
 				6D8C53CC5574D36358A3ECA8 /* Theme.swift */,
+				D85D892B9AF0E162FAAB3845 /* WidgetSessionStore.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -129,6 +138,7 @@
 			isa = PBXGroup;
 			children = (
 				C3185B90B9F4434D858D5CCA /* ParkinRulesTests.swift */,
+				0476A883698084864D2DD39B /* WidgetSessionStoreTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -137,6 +147,7 @@
 			isa = PBXGroup;
 			children = (
 				3F372FA460E1F236A01F6C81 /* Info.plist */,
+				A83EEBECE526FD2784CBD928 /* YallaParkWidgets.entitlements */,
 				64F7A94B9B0B3F28051F4343 /* YallaParkWidgets.swift */,
 			);
 			path = Widgets;
@@ -285,6 +296,7 @@
 				418B942645445A49336A308B /* SettingsView.swift in Sources */,
 				5E35725253EC503CA2ABBD4A /* SpotsView.swift in Sources */,
 				124DA99460C3FEC7249D0F5A /* Theme.swift in Sources */,
+				5C6058CC1E1D03F4BB3F20F9 /* WidgetSessionStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -294,6 +306,7 @@
 			files = (
 				A7E1853E6C3F180D7DADC941 /* ParkingActivity.swift in Sources */,
 				1AA7DAC1FC4A297FB2425B62 /* Theme.swift in Sources */,
+				F69EF9F7D4FA2459740F6ABC /* WidgetSessionStore.swift in Sources */,
 				C089C49B8CAD15B442FC0705 /* YallaParkWidgets.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -303,6 +316,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DE559DEF8C65F8C67773CF26 /* ParkinRulesTests.swift in Sources */,
+				57E52A9D364D14DD2709C99F /* WidgetSessionStoreTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -417,6 +431,7 @@
 		7AD643E6BD5B3222EEFACBDC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Widgets/YallaParkWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = YJFN5RLHZH;
@@ -501,6 +516,7 @@
 		CB3EEA5AC2D4FAA3967FA31B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Widgets/YallaParkWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = YJFN5RLHZH;
@@ -523,6 +539,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Sources/DXBPark.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
@@ -545,6 +562,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Sources/DXBPark.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;

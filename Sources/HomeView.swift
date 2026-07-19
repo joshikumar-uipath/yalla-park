@@ -414,9 +414,14 @@ struct HomeView: View {
         location.requestOneShot()
         recomputeVerdict()
         syncProtection()
-        // Session over → take the meter off the lock screen.
-        if activeSession == nil {
+        // Keep the widget in step with the truth: refresh it while a session
+        // runs, take the meter off the lock screen and widget once it's over.
+        if let session = activeSession {
+            WidgetSessionStore.save(zoneCode: session.zoneCode, plate: session.plate,
+                                    startedAt: session.startedAt, expiresAt: session.expiresAt)
+        } else {
             LiveActivityManager.end()
+            WidgetSessionStore.clear()
         }
         // Automation/demo hook: `simctl launch ... -demoSession` seeds a paid session.
         if CommandLine.arguments.contains("-demoSession"), activeSession == nil {
@@ -427,6 +432,8 @@ struct HomeView: View {
             modelContext.insert(demo)
             LiveActivityManager.start(zoneCode: demo.zoneCode, plate: demo.plate,
                                       startedAt: demo.startedAt, expiresAt: demo.expiresAt)
+            WidgetSessionStore.save(zoneCode: demo.zoneCode, plate: demo.plate,
+                                    startedAt: demo.startedAt, expiresAt: demo.expiresAt)
             showPass = true
         }
     }
@@ -507,6 +514,7 @@ struct HomeView: View {
             NotificationManager.shared.scheduleExpiryReminders(
                 zone: session.zoneCode, expiresAt: session.expiresAt)
             LiveActivityManager.update(startedAt: session.startedAt, expiresAt: session.expiresAt)
+            WidgetSessionStore.update(startedAt: session.startedAt, expiresAt: session.expiresAt)
             return
         }
 
@@ -522,6 +530,8 @@ struct HomeView: View {
             zone: session.zoneCode, expiresAt: session.expiresAt)
         LiveActivityManager.start(zoneCode: session.zoneCode, plate: session.plate,
                                   startedAt: session.startedAt, expiresAt: session.expiresAt)
+        WidgetSessionStore.save(zoneCode: session.zoneCode, plate: session.plate,
+                                startedAt: session.startedAt, expiresAt: session.expiresAt)
         showPass = true
     }
 

@@ -135,41 +135,97 @@ private struct BrandChip: View {
     }
 }
 
-// MARK: - Home-screen widget: manual backup for the Shortcut automation
+// MARK: - Home-screen widget: manual backup for the Shortcut automation,
+// or a live countdown meter while a paid session is running.
 
-struct ParkNowEntry: TimelineEntry { let date: Date }
+struct ParkNowEntry: TimelineEntry {
+    let date: Date
+    let session: WidgetSession?
+}
 
 struct ParkNowProvider: TimelineProvider {
-    func placeholder(in context: Context) -> ParkNowEntry { ParkNowEntry(date: .now) }
+    func placeholder(in context: Context) -> ParkNowEntry {
+        ParkNowEntry(date: .now, session: nil)
+    }
     func getSnapshot(in context: Context, completion: @escaping (ParkNowEntry) -> Void) {
-        completion(ParkNowEntry(date: .now))
+        completion(ParkNowEntry(date: .now, session: WidgetSessionStore.load()))
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<ParkNowEntry>) -> Void) {
-        completion(Timeline(entries: [ParkNowEntry(date: .now)], policy: .never))
+        if let session = WidgetSessionStore.load() {
+            // One entry is enough — Text(timerInterval:) ticks by itself.
+            // At expiry, WidgetKit asks again and we fall back to the park button.
+            completion(Timeline(entries: [ParkNowEntry(date: .now, session: session)],
+                                policy: .after(session.expiresAt)))
+        } else {
+            completion(Timeline(entries: [ParkNowEntry(date: .now, session: nil)], policy: .never))
+        }
     }
 }
 
 struct ParkNowWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "ParkNowWidget", provider: ParkNowProvider()) { _ in
-            ParkNowView()
+        StaticConfiguration(kind: WidgetSessionStore.widgetKind, provider: ParkNowProvider()) { entry in
+            ParkNowView(entry: entry)
         }
-        .configurationDisplayName("I just parked")
-        .description("One tap to check the zone and pay.")
+        .configurationDisplayName("Yalla Park")
+        .description("One tap to pay — and a live meter while you're parked.")
         .supportedFamilies([.systemSmall, .accessoryCircular])
     }
 }
 
 struct ParkNowView: View {
     @Environment(\.widgetFamily) private var family
+    let entry: ParkNowEntry
 
     var body: some View {
         Group {
-            switch family {
-            case .accessoryCircular:
+            switch (family, entry.session) {
+            case (.accessoryCircular, let session?):
+                VStack(spacing: 1) {
+                    Image(systemName: "parkingsign")
+                        .font(.system(size: 12, weight: .bold))
+                    Text(timerInterval: entry.date...session.expiresAt, countsDown: true)
+                        .font(.system(size: 12, weight: .semibold))
+                        .monospacedDigit()
+                        .multilineTextAlignment(.center)
+                        .minimumScaleFactor(0.6)
+                }
+                .widgetURL(URL(string: "dxbpark://extend"))
+            case (.accessoryCircular, nil):
                 Image(systemName: "parkingsign")
                     .font(.system(size: 22, weight: .bold))
                     .widgetURL(URL(string: "dxbpark://parked"))
+            case (_, let session?):
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 5) {
+                        BrandChip()
+                        Text("Zone \(session.zoneCode)")
+                            .font(.system(size: 12, weight: .semibold))
+                            .opacity(0.92)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    Spacer()
+                    Text(timerInterval: entry.date...session.expiresAt, countsDown: true)
+                        .font(.system(size: 30, weight: .bold))
+                        .monospacedDigit()
+                        .kerning(-0.5)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                    ProgressView(timerInterval: session.startedAt...session.expiresAt,
+                                 countsDown: true, label: { EmptyView() },
+                                 currentValueLabel: { EmptyView() })
+                        .progressViewStyle(.linear)
+                        .tint(.white)
+                        .padding(.top, 4)
+                    Text("tap to extend")
+                        .font(.system(size: 11, weight: .medium))
+                        .opacity(0.8)
+                        .padding(.top, 5)
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .widgetURL(URL(string: "dxbpark://extend"))
             default:
                 VStack(spacing: 8) {
                     Image(systemName: "car.fill")

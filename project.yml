@@ -24,6 +24,11 @@ targets:
     dependencies:
       - target: YallaParkWidgets
         embed: true
+    entitlements:
+      path: Sources/DXBPark.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.avjoshi.dxbpark
     info:
       path: Sources/Info.plist
       properties:
@@ -42,6 +47,7 @@ targets:
       - path: Widgets
       - path: Sources/ParkingActivity.swift
       - path: Sources/Theme.swift
+      - path: Sources/WidgetSessionStore.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.avjoshi.dxbpark.widgets
@@ -52,6 +58,11 @@ targets:
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1"
         SKIP_INSTALL: YES
+    entitlements:
+      path: Widgets/YallaParkWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.avjoshi.dxbpark
     info:
       path: Widgets/Info.plist
       properties:

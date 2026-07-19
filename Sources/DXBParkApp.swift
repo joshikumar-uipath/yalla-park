@@ -34,11 +34,14 @@ struct DXBParkApp: App {
                 .environment(router)
                 .preferredColorScheme(.light) // the M1 design language is warm-light
                 .onOpenURL { url in
-                    // dxbpark://parked — from the Shortcuts automation, widget, or Siri
-                    if url.scheme == "dxbpark",
-                       url.host == "parked" || url.path.contains("parked") {
+                    guard url.scheme == "dxbpark" else { return }
+                    if url.host == "parked" || url.path.contains("parked") {
+                        // From the Shortcuts automation, widget, or Siri
                         automationVerified = true // §13: setup success detected
                         router.openParked()
+                    } else if url.host == "extend" || url.path.contains("extend") {
+                        // Widget countdown tap — straight into the +1 hour flow
+                        router.requestExtend()
                     }
                 }
                 .fullScreenCover(isPresented: Binding(
