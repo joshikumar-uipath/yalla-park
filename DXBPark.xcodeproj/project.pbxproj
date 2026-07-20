@@ -26,7 +26,9 @@
 		9CBE94B426A040CB36B15FE4 /* ParkingActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CFDC07F993FDF17DF849A3D /* ParkingActivity.swift */; };
 		A7E1853E6C3F180D7DADC941 /* ParkingActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CFDC07F993FDF17DF849A3D /* ParkingActivity.swift */; };
 		B1117A40E8ACE1EE302D0631 /* AppIntentsSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66C78CC69BDCEAF660325E96 /* AppIntentsSupport.swift */; };
+		B82B331830BBC3561302F1D6 /* InterventionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 205E2AD08AF644BFB045892A /* InterventionTests.swift */; };
 		C089C49B8CAD15B442FC0705 /* YallaParkWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64F7A94B9B0B3F28051F4343 /* YallaParkWidgets.swift */; };
+		DD6E0B0E7DD4D336F3146312 /* Savings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F607044A4521867D5D97AAC9 /* Savings.swift */; };
 		DE559DEF8C65F8C67773CF26 /* ParkinRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3185B90B9F4434D858D5CCA /* ParkinRulesTests.swift */; };
 		E7D513DB9123B0E66B17B5D6 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58D0FDA123340B78875DB168 /* NotificationManager.swift */; };
 		ED53E47EE855CE9DFB6E5A8B /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6A727A77AC189A5CD393978 /* Models.swift */; };
@@ -68,6 +70,7 @@
 /* Begin PBXFileReference section */
 		0476A883698084864D2DD39B /* WidgetSessionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSessionStoreTests.swift; sourceTree = "<group>"; };
 		0F52A1B2D5416A306CC55D19 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
+		205E2AD08AF644BFB045892A /* InterventionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterventionTests.swift; sourceTree = "<group>"; };
 		3CB4DF0F43CAB9E68CA27B70 /* DXBParkTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DXBParkTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3EB94186009CF99B00169782 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		3F372FA460E1F236A01F6C81 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -92,6 +95,7 @@
 		C3185B90B9F4434D858D5CCA /* ParkinRulesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkinRulesTests.swift; sourceTree = "<group>"; };
 		D85D892B9AF0E162FAAB3845 /* WidgetSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSessionStore.swift; sourceTree = "<group>"; };
 		E1EB1DD7EDA76FBEA7B6E466 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		F607044A4521867D5D97AAC9 /* Savings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Savings.swift; sourceTree = "<group>"; };
 		F6A727A77AC189A5CD393978 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		F7FDC965098FF74EAC824B55 /* DXBParkApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DXBParkApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -116,6 +120,7 @@
 				7CFDC07F993FDF17DF849A3D /* ParkingActivity.swift */,
 				693D09103F7F26DD21D4ECAA /* ParkinRules.swift */,
 				9F60F86DB9397E82F0848B4A /* PassView.swift */,
+				F607044A4521867D5D97AAC9 /* Savings.swift */,
 				3EB94186009CF99B00169782 /* SettingsView.swift */,
 				8FCD76013188A07DBA77091F /* SpotsView.swift */,
 				6D8C53CC5574D36358A3ECA8 /* Theme.swift */,
@@ -137,6 +142,7 @@
 		47B784144B115A81F216E1CC /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				205E2AD08AF644BFB045892A /* InterventionTests.swift */,
 				C3185B90B9F4434D858D5CCA /* ParkinRulesTests.swift */,
 				0476A883698084864D2DD39B /* WidgetSessionStoreTests.swift */,
 			);
@@ -293,6 +299,7 @@
 				4EF40B64AA6F49F2EEF5ECFA /* ParkinRules.swift in Sources */,
 				9CBE94B426A040CB36B15FE4 /* ParkingActivity.swift in Sources */,
 				76D745A94DBDC501F006117C /* PassView.swift in Sources */,
+				DD6E0B0E7DD4D336F3146312 /* Savings.swift in Sources */,
 				418B942645445A49336A308B /* SettingsView.swift in Sources */,
 				5E35725253EC503CA2ABBD4A /* SpotsView.swift in Sources */,
 				124DA99460C3FEC7249D0F5A /* Theme.swift in Sources */,
@@ -315,6 +322,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B82B331830BBC3561302F1D6 /* InterventionTests.swift in Sources */,
 				DE559DEF8C65F8C67773CF26 /* ParkinRulesTests.swift in Sources */,
 				57E52A9D364D14DD2709C99F /* WidgetSessionStoreTests.swift in Sources */,
 			);

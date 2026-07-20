@@ -426,6 +426,8 @@ struct HomeView: View {
         hours = max(1, defaultHours)
         location.requestOneShot()
         recomputeVerdict()
+        // Interventions whose window closed without action are not saves.
+        InterventionLog.closePastDeadline(in: modelContext)
         syncProtection()
         // Keep the widget in step with the truth: refresh it while a session
         // runs, take the meter off the lock screen and widget once it's over.
@@ -454,19 +456,40 @@ struct HomeView: View {
     /// Reconciles layers 3+4 with the current state — schedules what should fire,
     /// cancels what shouldn't. Called on every state transition (§9: "cancel
     /// scheduled notifications correctly when state changes").
+    /// Every schedule/cancel is mirrored into the intervention log (Task 1):
+    /// scheduling upserts a pending event, cancelling discards it if it never
+    /// fired. Fired events stay pending for resolvePayment/resolveExtend.
     private func syncProtection() {
         let manager = NotificationManager.shared
+        let now = Date.now
         if activeSession != nil || dismissed {
             manager.cancelUnpaidNag()
             manager.cancelMorningReminder()
+            InterventionLog.discardUnfired(kinds: [.unpaidNag, .morningFreeToPaid],
+                                           in: modelContext, now: now)
         } else if verdict.paymentRequired {
             manager.cancelMorningReminder()
+            InterventionLog.discardUnfired(kinds: [.morningFreeToPaid], in: modelContext, now: now)
             manager.scheduleUnpaidNag(zone: zoneCode.uppercased())
+            if manager.remindNag {
+                let fireAt = now.addingTimeInterval(ParkinRules.nagDelay)
+                InterventionLog.upsertScheduled(
+                    kind: .unpaidNag, zone: zoneCode.uppercased(), fireAt: fireAt,
+                    deadline: fireAt.addingTimeInterval(ParkinRules.nagResolveWindow),
+                    sessionID: nil, in: modelContext, now: now)
+            }
         } else {
             manager.cancelUnpaidNag()
+            InterventionLog.discardUnfired(kinds: [.unpaidNag], in: modelContext, now: now)
             if let next = verdict.nextChange {
                 let zoneLabel = zoneCode.isEmpty ? "This area" : "Zone \(zoneCode.uppercased())"
                 manager.scheduleMorningReminder(zone: zoneLabel, paidStart: next)
+                if manager.remindMorning {
+                    InterventionLog.upsertScheduled(
+                        kind: .morningFreeToPaid, zone: zoneCode.uppercased(),
+                        fireAt: next.addingTimeInterval(-Double(morningLeadMinutes) * 60),
+                        deadline: next, sessionID: nil, in: modelContext, now: now)
+                }
             }
         }
     }
@@ -521,11 +544,15 @@ struct HomeView: View {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
 
+        let now = Date.now
         if extending, let session = activeSession {
+            // A fired expiry warning followed by this extend = a likely save.
+            InterventionLog.resolveExtend(sessionID: session.id, at: now, in: modelContext)
             session.extend()
             extending = false
             NotificationManager.shared.scheduleExpiryReminders(
                 zone: session.zoneCode, expiresAt: session.expiresAt)
+            logExpiryIntervention(for: session, now: now)
             LiveActivityManager.update(startedAt: session.startedAt, expiresAt: session.expiresAt)
             WidgetSessionStore.update(startedAt: session.startedAt, expiresAt: session.expiresAt)
             return
@@ -535,17 +562,34 @@ struct HomeView: View {
         session.paymentAttempted = true
         session.userConfirmedPaid = true
         modelContext.insert(session)
+        // A fired nag/morning reminder followed by this payment = a likely save.
+        InterventionLog.resolvePayment(zone: session.zoneCode.uppercased(),
+                                       sessionID: session.id, at: now, in: modelContext)
         rememberSpotAndZone()
         // Paid: the nag and morning reminder are off the table; expiry watch begins.
         NotificationManager.shared.cancelUnpaidNag()
         NotificationManager.shared.cancelMorningReminder()
+        InterventionLog.discardUnfired(kinds: [.unpaidNag, .morningFreeToPaid],
+                                       in: modelContext, now: now)
         NotificationManager.shared.scheduleExpiryReminders(
             zone: session.zoneCode, expiresAt: session.expiresAt)
+        logExpiryIntervention(for: session, now: now)
         LiveActivityManager.start(zoneCode: session.zoneCode, plate: session.plate,
                                   startedAt: session.startedAt, expiresAt: session.expiresAt)
         WidgetSessionStore.save(zoneCode: session.zoneCode, plate: session.plate,
                                 startedAt: session.startedAt, expiresAt: session.expiresAt)
         showPass = true
+    }
+
+    /// Mirrors scheduleExpiryReminders into the log. The −10 min warning and the
+    /// at-expiry alert are one intervention; its deadline is the lapse itself.
+    private func logExpiryIntervention(for session: Session, now: Date) {
+        guard NotificationManager.shared.remindExpiry else { return }
+        let fireAt = session.expiresAt.addingTimeInterval(-ParkinRules.expiryWarningLead)
+        InterventionLog.upsertScheduled(
+            kind: .expiryWarning, zone: session.zoneCode.uppercased(),
+            fireAt: max(fireAt, now), deadline: session.expiresAt,
+            sessionID: session.id, in: modelContext, now: now)
     }
 
     private func rememberSpotAndZone() {

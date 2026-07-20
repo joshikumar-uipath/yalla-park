@@ -32,6 +32,16 @@ enum ParkinRules {
     static let paidEndHour = 22
     static let freeWeekday = 1 // Calendar weekday: 1 == Sunday
 
+    // Savings model (Task 1) — every tunable lives here, not inline.
+    /// Estimated value of one avoided fine, for the ledger. Always shown as "~".
+    static let assumedFineAED: Decimal = 150
+    /// Layer-4 nag fires this long after a paid-zone screen is left unpaid.
+    static let nagDelay: TimeInterval = 5 * 60
+    /// A payment within this window of a fired nag counts as caused by it.
+    static let nagResolveWindow: TimeInterval = 30 * 60
+    /// Expiry warning fires this long before a session lapses.
+    static let expiryWarningLead: TimeInterval = 10 * 60
+
     // Cost estimates ONLY — never present as exact. Zone letter is a hint.
     static func estimatedRateAED(zone: String, kind: ZoneKind) -> Int {
         switch kind {

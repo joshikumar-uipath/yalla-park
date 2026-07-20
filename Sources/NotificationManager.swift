@@ -28,10 +28,11 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     enum CategoryID { static let expiry = "SESSION_EXPIRY" }
     enum ActionID { static let extend1h = "EXTEND_1H" }
 
-    // User preferences (Settings), all default-on.
-    private var remindMorning: Bool { defaults.object(forKey: "remindMorning") as? Bool ?? true }
-    private var remindNag: Bool { defaults.object(forKey: "remindNag") as? Bool ?? true }
-    private var remindExpiry: Bool { defaults.object(forKey: "remindExpiry") as? Bool ?? true }
+    // User preferences (Settings), all default-on. Internal so the intervention
+    // log can gate on them — an off layer must never produce a "save".
+    var remindMorning: Bool { defaults.object(forKey: "remindMorning") as? Bool ?? true }
+    var remindNag: Bool { defaults.object(forKey: "remindNag") as? Bool ?? true }
+    var remindExpiry: Bool { defaults.object(forKey: "remindExpiry") as? Bool ?? true }
     private var morningLeadMinutes: Int { defaults.object(forKey: "morningLeadMinutes") as? Int ?? 15 }
 
     func configure() {
@@ -81,7 +82,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         schedule(id: ID.nag,
                  title: "Parking not registered!",
                  body: "You parked\(zone.isEmpty ? "" : " in zone \(zone)") 5 minutes ago and haven't paid — fines start at AED 150. Tap to pay in two taps.",
-                 at: Date.now.addingTimeInterval(5 * 60))
+                 at: Date.now.addingTimeInterval(ParkinRules.nagDelay))
     }
 
     func cancelUnpaidNag() {
@@ -96,7 +97,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         schedule(id: ID.expirySoon,
                  title: "Parking expires in 10 minutes",
                  body: "Zone \(zone) — extend from here if you're staying.",
-                 at: expiresAt.addingTimeInterval(-10 * 60),
+                 at: expiresAt.addingTimeInterval(-ParkinRules.expiryWarningLead),
                  category: CategoryID.expiry)
         schedule(id: ID.expired,
                  title: "Parking expired!",
