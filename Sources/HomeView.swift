@@ -22,6 +22,9 @@ struct HomeView: View {
     @State private var zoneCode = ""
     @State private var zoneKind: ZoneKind = .standard
     @State private var matchedSpot: Spot?
+    /// GPS-derived district → zone number suggestion (ZoneLocator).
+    @State private var suggestedCommunity: Community?
+    @State private var manualZoneEntry = false
     @State private var verdict: Verdict = ParkinRules.verdict(kind: .standard)
     @State private var hours = 1
 
@@ -283,8 +286,50 @@ struct HomeView: View {
         }
     }
 
-    // State B zone entry
+    // State B zone entry: GPS names the district → user taps the sign's letter.
+    // Manual field only when we couldn't place them (or they say we got it wrong).
+    @ViewBuilder
     private var zoneEntry: some View {
+        if let community = suggestedCommunity, !manualZoneEntry {
+            VStack(alignment: .leading, spacing: 10) {
+                (Text("Zone \(String(community.number))").fontWeight(.bold)
+                 + Text(" · \(community.displayName) — tap the letter on the sign"))
+                    .font(.system(size: 14.5, weight: .medium))
+                    .foregroundStyle(Theme.labelSecondary)
+
+                HStack(spacing: 7) {
+                    ForEach(["A", "B", "C", "D", "W"], id: \.self) { letter in
+                        Button {
+                            zoneCode = "\(community.number)\(letter)"
+                            UISelectionFeedbackGenerator().selectionChanged()
+                        } label: {
+                            Text(letter)
+                                .font(.system(size: 16, weight: .bold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(.white, in: RoundedRectangle(cornerRadius: 12))
+                                .foregroundStyle(Theme.labelPrimary)
+                                .shadow(color: .black.opacity(0.05), radius: 3, y: 1)
+                        }
+                    }
+                }
+
+                Button {
+                    manualZoneEntry = true
+                    zoneFieldFocused = true
+                } label: {
+                    Text("Different zone? Type the code")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.coral)
+                }
+            }
+            .padding(.top, 14)
+        } else {
+            manualZoneField
+        }
+    }
+
+    private var manualZoneField: some View {
         VStack(alignment: .leading, spacing: 8) {
             TextField("Zone code — blue/orange sign, e.g. 444A", text: $zoneCode)
                 .font(.system(size: 16, weight: .semibold))
@@ -423,6 +468,7 @@ struct HomeView: View {
 
     private func runPipeline() {
         dismissed = false
+        manualZoneEntry = false
         hours = max(1, defaultHours)
         location.requestOneShot()
         recomputeVerdict()
@@ -509,6 +555,8 @@ struct HomeView: View {
             zoneCode = match.zoneCode
             zoneKind = match.zoneKind
         }
+        // District lookup: pre-fills the zone *number*; the sign supplies the letter.
+        suggestedCommunity = ZoneLocator.community(at: coordinate)
         recomputeVerdict()
         syncProtection()
     }
