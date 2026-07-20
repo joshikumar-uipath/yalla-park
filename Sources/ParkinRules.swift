@@ -11,6 +11,11 @@ enum ZoneKind: String, Codable, CaseIterable {
     case standard      // street A/B/C/D zones
     case premium       // charged every day
     case multistorey   // charged 24/7
+    /// User-corrected: no Parkin zone at this spot (§10 "their correction
+    /// improves their own accuracy"). Field-proven necessary: whole districts
+    /// (e.g. Jebel Ali First) have no paid parking, and the app must be able
+    /// to remember that instead of demanding payment forever.
+    case free
 }
 
 struct Verdict: Equatable {
@@ -45,6 +50,7 @@ enum ParkinRules {
     // Cost estimates ONLY — never present as exact. Zone letter is a hint.
     static func estimatedRateAED(zone: String, kind: ZoneKind) -> Int {
         switch kind {
+        case .free: return 0
         case .multistorey: return 5
         case .premium: return 10
         case .standard:
@@ -92,6 +98,7 @@ enum ParkinRules {
 
     private static func isChargedDay(_ kind: ZoneKind, _ date: Date) -> Bool {
         switch kind {
+        case .free: return false
         case .multistorey, .premium: return true
         case .standard:
             if dubaiCalendar.component(.weekday, from: date) == freeWeekday { return false }
@@ -105,7 +112,7 @@ enum ParkinRules {
     }
 
     static func nextPaidStart(kind: ZoneKind, after date: Date) -> Date? {
-        guard kind != .multistorey else { return nil }
+        guard kind != .multistorey, kind != .free else { return nil }
         for offset in 0..<30 {
             guard let day = dubaiCalendar.date(byAdding: .day, value: offset, to: date) else { continue }
             guard isChargedDay(kind, day) else { continue }
@@ -116,6 +123,11 @@ enum ParkinRules {
     }
 
     static func verdict(kind: ZoneKind, at date: Date = .now) -> Verdict {
+        if kind == .free {
+            return Verdict(paymentRequired: false,
+                           reason: String(localized: "You marked this spot free"),
+                           nextChange: nil)
+        }
         if kind == .multistorey {
             return Verdict(paymentRequired: true,
                            reason: String(localized: "Multi-storey car park — paid 24/7"),

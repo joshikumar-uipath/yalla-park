@@ -28,7 +28,7 @@ struct SpotsView: View {
                                         Text(spot.name)
                                             .font(.system(size: 16, weight: .semibold))
                                         HStack(spacing: 6) {
-                                            Text("Zone \(spot.zoneCode)")
+                                            Text(spot.zoneKind == .free ? "Free parking" : "Zone \(spot.zoneCode)")
                                             Text("·")
                                             Text("parked \(spot.timesParked)×")
                                             Text("·")

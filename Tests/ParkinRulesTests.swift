@@ -13,6 +13,17 @@ final class ParkinRulesTests: XCTestCase {
             year: year, month: month, day: day, hour: hour, minute: minute))!
     }
 
+    // MARK: - User-corrected free spots (no Parkin zone here)
+
+    func testFreeKindIsNeverPaid() {
+        // Monday noon — peak paid hours for every real zone kind.
+        let verdict = ParkinRules.verdict(kind: .free, at: date(2026, 7, 20, 12, 0))
+        XCTAssertFalse(verdict.paymentRequired)
+        XCTAssertNil(verdict.nextChange) // no morning reminder for a free spot
+        XCTAssertNil(ParkinRules.nextPaidStart(kind: .free, after: date(2026, 7, 20, 12, 0)))
+        XCTAssertEqual(ParkinRules.estimatedRateAED(zone: "", kind: .free), 0)
+    }
+
     // MARK: - Daily window boundaries (standard zone)
 
     func testMonday0759IsFree() {

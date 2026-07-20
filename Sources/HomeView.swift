@@ -265,14 +265,26 @@ struct HomeView: View {
                 .padding(.top, 12)
 
             // §15: false trigger (drop-off, passenger) — one tap kills every nag.
-            Button {
-                dismissed = true
-                syncProtection()
-            } label: {
-                Text("I'm not parking here")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.labelSecondary)
-                    .frame(maxWidth: .infinity)
+            HStack(spacing: 0) {
+                Button {
+                    dismissed = true
+                    syncProtection()
+                } label: {
+                    Text("I'm not parking here")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.labelSecondary)
+                        .frame(maxWidth: .infinity)
+                }
+                // Field-proven (Jebel Ali): some districts have no Parkin zone
+                // at all. Let the user teach the app, permanently, per spot.
+                Button {
+                    markSpotFree()
+                } label: {
+                    Text("No paid parking here")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.labelSecondary)
+                        .frame(maxWidth: .infinity)
+                }
             }
             .padding(.top, 10)
         }
@@ -502,14 +514,41 @@ struct HomeView: View {
         }
     }
 
+    /// "No paid parking here": remember this location as free — the verdict
+    /// flips now and on every future visit within the spot radius.
+    private func markSpotFree() {
+        if let matched = matchedSpot {
+            matched.zoneKindRaw = ZoneKind.free.rawValue
+            matched.zoneCode = ""
+        } else if let coordinate = location.coordinate {
+            modelContext.insert(Spot(name: location.areaName ?? "Free parking",
+                                     coordinate: coordinate, zoneCode: "", kind: .free))
+        }
+        zoneKind = .free
+        zoneCode = ""
+        recomputeVerdict()
+        syncProtection()
+    }
+
     /// Rolls back a session whose payment turned out to have failed: the pass,
-    /// meter, widget, reminders, and any save credit tied to it all go.
+    /// meter, widget, reminders, save credit — and the zone memory the phantom
+    /// payment created (spot + recents), so the bad code can't auto-fill again.
     private func voidSession(_ session: Session) {
         InterventionLog.voidSession(sessionID: session.id, in: modelContext)
         modelContext.delete(session)
         NotificationManager.shared.cancelSessionReminders()
         LiveActivityManager.end()
         WidgetSessionStore.clear()
+        if let spot = spots.first(where: { $0.zoneCode == session.zoneCode }) {
+            if spot.timesParked <= 1 {
+                modelContext.delete(spot)
+            } else {
+                spot.timesParked -= 1
+            }
+        }
+        recentZonesCSV = recentZones.filter { $0 != session.zoneCode }.joined(separator: ",")
+        matchedSpot = nil
+        zoneCode = ""
         showPass = false
         manualZoneEntry = true
         recomputeVerdict()
