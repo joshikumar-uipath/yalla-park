@@ -143,22 +143,31 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
+    // NOTE: these MUST be the completionHandler variants, not the async ones.
+    // The async forms resume UIKit's post-response state-restoration work on a
+    // Swift-concurrency thread → NSInternalInconsistency assertion → SIGABRT
+    // (TestFlight crash 328B0D53, iOS 26.5.2, "closed when I opened the
+    // notification"). Handling on main and completing there fixes it.
+
     // Show banners even while the app is foreground.
     func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                willPresent notification: UNNotification) async
-        -> UNNotificationPresentationOptions {
-        [.banner, .sound, .list]
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler:
+                                    @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound, .list])
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                didReceive response: UNNotificationResponse) async {
-        await MainActor.run {
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        DispatchQueue.main.async {
             if response.actionIdentifier == ActionID.extend1h {
-                if let onExtendRequested { onExtendRequested() } else { pendingAction = .extend }
+                if let handler = self.onExtendRequested { handler() } else { self.pendingAction = .extend }
             } else {
                 // Default tap on any of our notifications → straight to the parked flow.
-                if let onOpenParked { onOpenParked() } else { pendingAction = .openParked }
+                if let handler = self.onOpenParked { handler() } else { self.pendingAction = .openParked }
             }
+            completionHandler()
         }
     }
 
