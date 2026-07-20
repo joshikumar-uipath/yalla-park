@@ -22,11 +22,40 @@ final class AppRouter {
     }
 }
 
+/// Registers the notification delegate before the first runloop tick — a tap on a
+/// notification can cold-launch the app, and the delegate must exist by then or
+/// the tap's response is dropped (SwiftUI's .task runs far too late for this).
+final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        NotificationManager.shared.configure()
+        return true
+    }
+}
+
 @main
 struct DXBParkApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var router = AppRouter()
     @AppStorage("hasOnboarded") private var hasOnboarded = false
     @AppStorage("automationVerified") private var automationVerified = false
+
+    /// Built by hand so a store that fails to open recovers instead of
+    /// fatalError-ing at launch (`.modelContainer(for:)` crashes on failure —
+    /// on a device that means a permanent crash loop until reinstall).
+    private let container: ModelContainer = {
+        let schema = Schema([Session.self, Spot.self])
+        if let container = try? ModelContainer(for: schema) { return container }
+        // Store incompatible or corrupt: drop it and start fresh — losing local
+        // history beats an unlaunchable app.
+        let support = URL.applicationSupportDirectory
+        for name in ["default.store", "default.store-wal", "default.store-shm"] {
+            try? FileManager.default.removeItem(at: support.appending(path: name))
+        }
+        if let container = try? ModelContainer(for: schema) { return container }
+        return try! ModelContainer(for: schema,
+                                   configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+    }()
 
     var body: some Scene {
         WindowGroup {
@@ -51,7 +80,6 @@ struct DXBParkApp: App {
                     OnboardingView { hasOnboarded = true }
                 }
                 .task {
-                    NotificationManager.shared.configure()
                     NotificationManager.shared.onOpenParked = { [weak router] in
                         router?.openParked()
                     }
@@ -60,7 +88,7 @@ struct DXBParkApp: App {
                     }
                 }
         }
-        .modelContainer(for: [Session.self, Spot.self])
+        .modelContainer(container)
     }
 }
 

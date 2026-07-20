@@ -9,6 +9,7 @@ struct OnboardingView: View {
     let onDone: () -> Void
 
     @AppStorage("plate") private var plate = ""
+    @AppStorage("setupMarkedDone") private var setupMarkedDone = false
     @State private var step = 0
     @State private var copied = false
 
@@ -137,10 +138,15 @@ struct OnboardingView: View {
                 }
                 .padding(.top, 4)
 
-                PrimaryButton("Done — continue") { step = 3 }
+                PrimaryButton("Done — continue") {
+                    // User says the automation is in place — stop nagging on Home.
+                    // automationVerified still flips only on a real dxbpark://parked open.
+                    setupMarkedDone = true
+                    if startAtShortcut { onDone() } else { step = 3 }
+                }
 
                 Button {
-                    step = 3
+                    if startAtShortcut { onDone() } else { step = 3 }
                 } label: {
                     Text("I'll do it later")
                         .font(.system(size: 14, weight: .semibold))

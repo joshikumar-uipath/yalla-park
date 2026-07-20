@@ -34,6 +34,8 @@ struct HomeView: View {
     @AppStorage("morningLeadMinutes") private var morningLeadMinutes = 15
     @AppStorage("defaultHours") private var defaultHours = 1
     @AppStorage("automationVerified") private var automationVerified = false
+    @AppStorage("setupMarkedDone") private var setupMarkedDone = false
+    @FocusState private var zoneFieldFocused: Bool
 
     private var activeSession: Session? { sessions.first(where: \.isActive) }
     private var recentZones: [String] {
@@ -49,7 +51,7 @@ struct HomeView: View {
             map
             locationPill
             VStack(spacing: 10) {
-                if !automationVerified && activeSession == nil {
+                if !automationVerified && !setupMarkedDone && activeSession == nil {
                     setupBanner
                 }
                 sheet
@@ -98,6 +100,8 @@ struct HomeView: View {
         }
         .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
         .ignoresSafeArea()
+        // Tap the map = put the keyboard away.
+        .simultaneousGesture(TapGesture().onEnded { zoneFieldFocused = false })
     }
 
     private var locationPill: some View {
@@ -286,9 +290,18 @@ struct HomeView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
+                .focused($zoneFieldFocused)
+                .submitLabel(.done)
+                .onSubmit { zoneFieldFocused = false }
+                .onChange(of: zoneCode) {
+                    zoneCode = zoneCode.replacingOccurrences(of: " ", with: "").uppercased()
+                }
                 .padding(13)
                 .background(.white, in: RoundedRectangle(cornerRadius: 13))
                 .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
+                // The whole point of the trigger is "phone out, type the sign" —
+                // have the keyboard ready without an extra tap.
+                .onAppear { zoneFieldFocused = true }
 
             if !recentZones.isEmpty {
                 HStack(spacing: 7) {

@@ -7,9 +7,14 @@ import UserNotifications
 final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationManager()
 
-    /// Set by the App at launch — deep-link handlers.
-    var onOpenParked: (() -> Void)?
-    var onExtendRequested: (() -> Void)?
+    /// Set by the App at launch — deep-link handlers. A notification tap can
+    /// cold-launch the app before the UI wires these up, so an unhandled tap is
+    /// parked in `pendingAction` and replayed the moment its handler arrives.
+    var onOpenParked: (() -> Void)? { didSet { replayPendingAction() } }
+    var onExtendRequested: (() -> Void)? { didSet { replayPendingAction() } }
+
+    private enum PendingAction { case openParked, extend }
+    private var pendingAction: PendingAction?
 
     private let center = UNUserNotificationCenter.current()
     private var defaults: UserDefaults { .standard }
@@ -148,11 +153,25 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                                 didReceive response: UNNotificationResponse) async {
         await MainActor.run {
             if response.actionIdentifier == ActionID.extend1h {
-                onExtendRequested?()
+                if let onExtendRequested { onExtendRequested() } else { pendingAction = .extend }
             } else {
                 // Default tap on any of our notifications → straight to the parked flow.
-                onOpenParked?()
+                if let onOpenParked { onOpenParked() } else { pendingAction = .openParked }
             }
+        }
+    }
+
+    private func replayPendingAction() {
+        guard let action = pendingAction else { return }
+        switch action {
+        case .openParked:
+            guard let onOpenParked else { return }
+            pendingAction = nil
+            onOpenParked()
+        case .extend:
+            guard let onExtendRequested else { return }
+            pendingAction = nil
+            onExtendRequested()
         }
     }
 }
