@@ -42,6 +42,10 @@ final class InterventionEvent {
     var decisive: Bool
     /// 0 unless decisive.
     var estimatedFineAvoidedAED: Decimal
+    /// Set when the user reports a real fine (Task 2) — ground truth that
+    /// overrides any "likely avoided" credit.
+    var reportedFineAED: Decimal?
+    var finedAt: Date?
 
     var kind: InterventionKind { InterventionKind(rawValue: kindRaw) ?? .unpaidNag }
     var outcome: InterventionOutcome {
@@ -61,6 +65,40 @@ final class InterventionEvent {
         self.resolvedAt = nil
         self.decisive = false
         self.estimatedFineAvoidedAED = 0
+        self.reportedFineAED = nil
+        self.finedAt = nil
+    }
+}
+
+/// Rollup for the stats line and (Task 3) the savings card — every number
+/// traces to individual events, no global multipliers.
+struct SavingsTotals: Equatable {
+    var remindersFired = 0
+    var likelySaves = 0
+    var avoidedAED = Decimal(0)
+    var finesReported = 0
+    var finesReportedAED = Decimal(0)
+}
+
+enum SavingsStats {
+    static func totals(in context: ModelContext, now: Date = .now) -> SavingsTotals {
+        let events = (try? context.fetch(FetchDescriptor<InterventionEvent>())) ?? []
+        var totals = SavingsTotals()
+        var finedSessions = Set<UUID>()
+        for event in events {
+            if event.firedAt <= now { totals.remindersFired += 1 }
+            if event.decisive {
+                totals.likelySaves += 1
+                totals.avoidedAED += event.estimatedFineAvoidedAED
+            }
+            // A session's fine is reported onto every one of its events — count once.
+            if event.outcome == .gotFined, let amount = event.reportedFineAED,
+               finedSessions.insert(event.relatedSessionID ?? event.id).inserted {
+                totals.finesReported += 1
+                totals.finesReportedAED += amount
+            }
+        }
+        return totals
     }
 }
 
@@ -144,6 +182,32 @@ enum InterventionLog {
                 event.estimatedFineAvoidedAED = ParkinRules.assumedFineAED
                 awarded = true
             }
+        }
+    }
+
+    /// "I actually got fined" (Task 2): ground truth wins. Every intervention
+    /// tied to the session loses its save credit and records the real fine, so
+    /// the ledger can never show a fine as avoided that actually happened.
+    static func reportFine(sessionID: UUID, amountAED: Decimal,
+                           at date: Date = .now, in context: ModelContext) {
+        var events = (try? context.fetch(FetchDescriptor<InterventionEvent>(
+            predicate: #Predicate { $0.relatedSessionID == sessionID }))) ?? []
+        if events.isEmpty {
+            // No reminder ever covered this session — still record the fine so
+            // the accuracy stats stay honest. Kind approximates the cause.
+            let marker = InterventionEvent(kind: .expiryWarning, firedAt: date,
+                                           deadline: date, zoneCode: "",
+                                           relatedSessionID: sessionID)
+            context.insert(marker)
+            events = [marker]
+        }
+        for event in events {
+            event.outcome = .gotFined
+            event.decisive = false
+            event.estimatedFineAvoidedAED = 0
+            event.reportedFineAED = amountAED
+            event.finedAt = date
+            event.resolvedAt = date
         }
     }
 

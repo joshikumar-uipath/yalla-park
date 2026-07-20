@@ -157,6 +157,54 @@ final class InterventionTests: XCTestCase {
         XCTAssertEqual(allEvents.filter { $0.outcome == .resolvedExtended }.count, 1)
     }
 
+    // MARK: - "I got fined" (Task 2): ground truth beats the estimate
+
+    func testReportFineRemovesLikelySave() {
+        let sessionID = UUID()
+        let nagFire = t(0)
+        InterventionLog.upsertScheduled(
+            kind: .unpaidNag, zone: "444A", fireAt: nagFire,
+            deadline: nagFire.addingTimeInterval(ParkinRules.nagResolveWindow),
+            sessionID: nil, in: context, now: t(-60))
+        InterventionLog.resolvePayment(zone: "444A", sessionID: sessionID, at: t(60), in: context)
+        XCTAssertEqual(SavingsStats.totals(in: context, now: t(60)).likelySaves, 1)
+
+        InterventionLog.reportFine(sessionID: sessionID, amountAED: 200, at: t(3600), in: context)
+
+        let totals = SavingsStats.totals(in: context, now: t(3600))
+        XCTAssertEqual(totals.likelySaves, 0)
+        XCTAssertEqual(totals.avoidedAED, 0)
+        XCTAssertEqual(totals.finesReported, 1)
+        XCTAssertEqual(totals.finesReportedAED, 200)
+        XCTAssertEqual(allEvents.first?.outcome, .gotFined)
+    }
+
+    func testReportFineOnUncoveredSessionStillCounts() {
+        let sessionID = UUID()
+        InterventionLog.reportFine(sessionID: sessionID, amountAED: 150, at: t(0), in: context)
+        let totals = SavingsStats.totals(in: context, now: t(0))
+        XCTAssertEqual(totals.finesReported, 1)
+        XCTAssertEqual(totals.likelySaves, 0)
+    }
+
+    func testFineOnSessionWithTwoEventsCountsOnce() {
+        let sessionID = UUID()
+        InterventionLog.upsertScheduled(
+            kind: .expiryWarning, zone: "444A", fireAt: t(0), deadline: t(600),
+            sessionID: sessionID, in: context, now: t(-60))
+        InterventionLog.resolveExtend(sessionID: sessionID, at: t(300), in: context)
+        InterventionLog.upsertScheduled(
+            kind: .expiryWarning, zone: "444A", fireAt: t(3000), deadline: t(4200),
+            sessionID: sessionID, in: context, now: t(300))
+
+        InterventionLog.reportFine(sessionID: sessionID, amountAED: 150, at: t(5000), in: context)
+
+        let totals = SavingsStats.totals(in: context, now: t(5000))
+        XCTAssertEqual(totals.finesReported, 1)
+        XCTAssertEqual(totals.finesReportedAED, 150)
+        XCTAssertEqual(totals.likelySaves, 0)
+    }
+
     // MARK: - Rescheduling upserts, it never stacks duplicates
 
     func testReschedulingUpdatesUnfiredEventInPlace() {

@@ -99,6 +99,11 @@ struct SettingsView: View {
                         Button("Fire test notifications (4 s + 8 s)") {
                             NotificationManager.shared.fireTestNotifications()
                         }
+                        // Savings-model accuracy at a glance (Task 2): if fines
+                        // creep up relative to saves, the windows need tuning.
+                        let totals = SavingsStats.totals(in: modelContext)
+                        LabeledContent("Savings model",
+                                       value: "\(totals.remindersFired) fired · \(totals.likelySaves) likely saves · \(totals.finesReported) fines reported")
                     } header: {
                         Text("Testing")
                     } footer: {
