@@ -185,6 +185,23 @@ enum InterventionLog {
         }
     }
 
+    /// A session voided because its payment actually failed: pending events go,
+    /// and any resolved/decisive credit is revoked — the "payment" that earned
+    /// it never happened.
+    static func voidSession(sessionID: UUID, in context: ModelContext) {
+        let events = (try? context.fetch(FetchDescriptor<InterventionEvent>(
+            predicate: #Predicate { $0.relatedSessionID == sessionID }))) ?? []
+        for event in events {
+            if event.outcome == .pending {
+                context.delete(event)
+            } else {
+                event.outcome = .dismissed
+                event.decisive = false
+                event.estimatedFineAvoidedAED = 0
+            }
+        }
+    }
+
     /// "I actually got fined" (Task 2): ground truth wins. Every intervention
     /// tied to the session loses its save credit and records the real fine, so
     /// the ledger can never show a fine as avoided that actually happened.

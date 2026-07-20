@@ -24,19 +24,19 @@ struct ConfirmPaidSheet: View {
             .background(Theme.smsPreviewBackground, in: RoundedRectangle(cornerRadius: 15))
             .padding(.bottom, 16)
 
-            Text("Did you send it?")
+            Text("Did Parkin confirm it?")
                 .font(.system(size: 20, weight: .bold))
                 .kerning(-0.4)
                 .foregroundStyle(Theme.labelPrimary)
 
-            Text("iOS can't confirm it for us, so we ask once. We'll only mark it paid if you say so.")
+            Text("Watch for the reply from 7275 — it lists an invoice and expiry. If it says \"Invalid Zone\", fix the zone and resend. We only mark it paid when you say Parkin confirmed.")
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.labelSecondary)
                 .lineSpacing(3)
                 .padding(.top, 6)
 
             Button(action: onConfirm) {
-                Text("I sent it")
+                Text("Parkin confirmed ✓")
                     .font(.system(size: 17, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 17)
@@ -46,7 +46,7 @@ struct ConfirmPaidSheet: View {
             .padding(.top, 18)
 
             Button(action: onNotYet) {
-                Text("Not yet")
+                Text("No reply yet / it failed")
                     .font(.system(size: 15, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
@@ -56,7 +56,7 @@ struct ConfirmPaidSheet: View {
         }
         .padding(.horizontal, 22)
         .padding(.top, 24)
-        .presentationDetents([.height(330)])
+        .presentationDetents([.height(350)])
         .presentationCornerRadius(Theme.sheetRadius)
         .presentationDragIndicator(.visible)
     }

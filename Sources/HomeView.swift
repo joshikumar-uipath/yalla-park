@@ -319,6 +319,10 @@ struct HomeView: View {
                     .font(.system(size: 14.5, weight: .medium))
                     .foregroundStyle(Theme.labelSecondary)
 
+                Text("A guess from your location — the sign or meter wins if it differs.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.labelTertiary)
+
                 HStack(spacing: 7) {
                     ForEach(["A", "B", "C", "D", "W"], id: \.self) { letter in
                         Button {
@@ -483,7 +487,33 @@ struct HomeView: View {
                 .buttonStyle(PressScaleStyle())
             }
             .padding(.top, 16)
+
+            // Field reality (TestFlight): Parkin can reject the SMS ("Invalid
+            // Zone") after the user already confirmed. Give them a way out.
+            Button {
+                voidSession(session)
+            } label: {
+                Text("Payment didn't go through? Fix zone & resend")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.labelSecondary)
+                    .frame(maxWidth: .infinity)
+            }
+            .padding(.top, 12)
         }
+    }
+
+    /// Rolls back a session whose payment turned out to have failed: the pass,
+    /// meter, widget, reminders, and any save credit tied to it all go.
+    private func voidSession(_ session: Session) {
+        InterventionLog.voidSession(sessionID: session.id, in: modelContext)
+        modelContext.delete(session)
+        NotificationManager.shared.cancelSessionReminders()
+        LiveActivityManager.end()
+        WidgetSessionStore.clear()
+        showPass = false
+        manualZoneEntry = true
+        recomputeVerdict()
+        syncProtection()
     }
 
     // MARK: - Pipeline (§8)

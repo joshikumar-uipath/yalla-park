@@ -205,6 +205,30 @@ final class InterventionTests: XCTestCase {
         XCTAssertEqual(totals.likelySaves, 0)
     }
 
+    // MARK: - Voided session (payment actually failed) revokes credit
+
+    func testVoidSessionRevokesSaveAndClearsPending() {
+        let sessionID = UUID()
+        let nagFire = t(0)
+        InterventionLog.upsertScheduled(
+            kind: .unpaidNag, zone: "591B", fireAt: nagFire,
+            deadline: nagFire.addingTimeInterval(ParkinRules.nagResolveWindow),
+            sessionID: nil, in: context, now: t(-60))
+        InterventionLog.resolvePayment(zone: "591B", sessionID: sessionID, at: t(60), in: context)
+        InterventionLog.upsertScheduled(
+            kind: .expiryWarning, zone: "591B", fireAt: t(50 * 60), deadline: t(60 * 60),
+            sessionID: sessionID, in: context, now: t(60))
+        XCTAssertEqual(SavingsStats.totals(in: context, now: t(60)).likelySaves, 1)
+
+        InterventionLog.voidSession(sessionID: sessionID, in: context)
+
+        let totals = SavingsStats.totals(in: context, now: t(60))
+        XCTAssertEqual(totals.likelySaves, 0)
+        XCTAssertEqual(totals.avoidedAED, 0)
+        // Pending expiry warning for the voided session is gone entirely.
+        XCTAssertTrue(InterventionLog.pendingEvents(in: context).isEmpty)
+    }
+
     // MARK: - Savings card inputs (Task 3)
 
     func testEstimatedSpendCountsOnlyConfirmedSessions() {
