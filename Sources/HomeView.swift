@@ -103,9 +103,12 @@ struct HomeView: View {
                 onNotYet: { showConfirm = false }
             )
         }
-        .fullScreenCover(isPresented: $showPass) {
+        // A sheet, not fullScreenCover, so the pass swipes away naturally;
+        // "Back to map" stays as the discoverable path.
+        .sheet(isPresented: $showPass) {
             if let session = activeSession {
                 PassScreen(session: session, onClose: { showPass = false })
+                    .presentationDragIndicator(.visible)
             }
         }
     }
