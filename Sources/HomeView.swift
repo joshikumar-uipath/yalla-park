@@ -38,6 +38,9 @@ struct HomeView: View {
     @AppStorage("defaultHours") private var defaultHours = 1
     @AppStorage("automationVerified") private var automationVerified = false
     @AppStorage("setupMarkedDone") private var setupMarkedDone = false
+    /// Home savings card: dismiss hides it until the save count grows again.
+    @AppStorage("savingsCardDismissedCount") private var savingsCardDismissedCount = 0
+    @State private var showLedger = false
     @FocusState private var zoneFieldFocused: Bool
 
     private var activeSession: Session? { sessions.first(where: \.isActive) }
@@ -57,11 +60,27 @@ struct HomeView: View {
                 if !automationVerified && !setupMarkedDone && activeSession == nil {
                     setupBanner
                 }
+                // Quiet ROI moment — only when nothing needs paying right now.
+                if activeSession == nil && !verdict.paymentRequired {
+                    let totals = SavingsStats.totals(in: modelContext)
+                    if totals.likelySaves > savingsCardDismissedCount {
+                        Button { showLedger = true } label: {
+                            SavingsCardView(totals: totals,
+                                            spendAED: SavingsStats.estimatedSpendAED(sessions: sessions),
+                                            onDismiss: { savingsCardDismissedCount = totals.likelySaves })
+                        }
+                        .buttonStyle(PressScaleStyle())
+                        .padding(.horizontal, 10)
+                    }
+                }
                 sheet
             }
         }
         .sheet(isPresented: $showShortcutGuide) {
             OnboardingView(startAtShortcut: true) { showShortcutGuide = false }
+        }
+        .sheet(isPresented: $showLedger) {
+            NavigationStack { SavingsLedgerView() }
         }
         .onAppear { runPipeline() }
         .onChange(of: router.parkedTrigger) { runPipeline() }

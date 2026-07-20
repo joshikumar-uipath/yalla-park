@@ -59,6 +59,14 @@ struct SettingsView: View {
                     Text("Park during free hours and we warn you before charging starts (e.g. 7:45 AM Monday). Expiry alerts include a one-tap +1 hour action.")
                 }
 
+                Section("Stats") {
+                    NavigationLink {
+                        SavingsLedgerView()
+                    } label: {
+                        Label("Savings — fines likely avoided", systemImage: "shield.checkered")
+                    }
+                }
+
                 Section("Automation") {
                     Button {
                         showGuide = true

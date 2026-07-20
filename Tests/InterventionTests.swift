@@ -205,6 +205,15 @@ final class InterventionTests: XCTestCase {
         XCTAssertEqual(totals.likelySaves, 0)
     }
 
+    // MARK: - Savings card inputs (Task 3)
+
+    func testEstimatedSpendCountsOnlyConfirmedSessions() {
+        let paid = Session(plate: "A1", zoneCode: "318C", kind: .standard, durationHours: 2)
+        paid.userConfirmedPaid = true          // 318C → ~AED 4/h × 2h = 8
+        let unconfirmed = Session(plate: "A1", zoneCode: "318C", kind: .standard, durationHours: 3)
+        XCTAssertEqual(SavingsStats.estimatedSpendAED(sessions: [paid, unconfirmed]), 8)
+    }
+
     // MARK: - Rescheduling upserts, it never stacks duplicates
 
     func testReschedulingUpdatesUnfiredEventInPlace() {
