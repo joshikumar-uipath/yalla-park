@@ -68,6 +68,14 @@ final class Spot {
 
     /// Spot-match radius per spec §8 (~40 m).
     static let matchRadiusMeters: CLLocationDistance = 40
+    /// Free spots (home, unzoned districts) match wider — home parking rarely
+    /// lands on the exact same 40 m twice, and a false "free" match near a
+    /// genuinely free spot is low-risk compared to a missed one that nags.
+    static let freeMatchRadiusMeters: CLLocationDistance = 150
+
+    var matchRadius: CLLocationDistance {
+        zoneKind == .free ? Spot.freeMatchRadiusMeters : Spot.matchRadiusMeters
+    }
 
     func distance(from coordinate: CLLocationCoordinate2D) -> CLLocationDistance {
         CLLocation(latitude: latitude, longitude: longitude)

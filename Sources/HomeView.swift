@@ -517,6 +517,7 @@ struct HomeView: View {
     /// "No paid parking here": remember this location as free — the verdict
     /// flips now and on every future visit within the spot radius.
     private func markSpotFree() {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
         if let matched = matchedSpot {
             matched.zoneKindRaw = ZoneKind.free.rawValue
             matched.zoneCode = ""
@@ -638,9 +639,9 @@ struct HomeView: View {
                 center: coordinate,
                 span: MKCoordinateSpan(latitudeDelta: 0.006, longitudeDelta: 0.006)))
         }
-        // Spot match (~40 m): strong matches auto-fill the zone.
+        // Spot match: auto-fill the zone (40 m; free/home spots match at 150 m).
         if let match = spots
-            .filter({ $0.distance(from: coordinate) <= Spot.matchRadiusMeters })
+            .filter({ $0.distance(from: coordinate) <= $0.matchRadius })
             .min(by: { $0.distance(from: coordinate) < $1.distance(from: coordinate) }) {
             matchedSpot = match
             zoneCode = match.zoneCode
@@ -653,9 +654,16 @@ struct HomeView: View {
     }
 
     private func recomputeVerdict() {
+        // The user's own correction outranks the debug switch — otherwise
+        // "No paid parking here" looks broken while force-paid is on.
+        if zoneKind == .free {
+            verdict = ParkinRules.verdict(kind: .free)
+            return
+        }
         if debugForcePaid {
             verdict = Verdict(paymentRequired: true,
-                              reason: "Charging until 10:00 PM", nextChange: nil)
+                              reason: "Forced paid — debug switch is on in Settings",
+                              nextChange: nil)
             return
         }
         verdict = ParkinRules.verdict(kind: zoneKind)
