@@ -39,6 +39,27 @@ final class Session {
     }
 }
 
+/// A user-designated place where the app stays silent: the zone may well be
+/// paid (for visitors), but the user has their own arrangement there —
+/// residence permit, office parking. Distinct from ZoneKind.free, which claims
+/// the *place* has no Parkin zone at all.
+enum SpotDesignation: String, Codable, CaseIterable {
+    case home, office
+
+    var label: String {
+        switch self {
+        case .home: return String(localized: "Home")
+        case .office: return String(localized: "Office")
+        }
+    }
+    var icon: String {
+        switch self {
+        case .home: return "house.fill"
+        case .office: return "building.2.fill"
+        }
+    }
+}
+
 @Model
 final class Spot {
     var id: UUID
@@ -49,13 +70,19 @@ final class Spot {
     var zoneKindRaw: String
     var timesParked: Int
     var lastParkedAt: Date
+    var designationRaw: String?
 
     var zoneKind: ZoneKind { ZoneKind(rawValue: zoneKindRaw) ?? .standard }
+    var designation: SpotDesignation? {
+        get { designationRaw.flatMap(SpotDesignation.init(rawValue:)) }
+        set { designationRaw = newValue?.rawValue }
+    }
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 
-    init(name: String, coordinate: CLLocationCoordinate2D, zoneCode: String, kind: ZoneKind) {
+    init(name: String, coordinate: CLLocationCoordinate2D, zoneCode: String,
+         kind: ZoneKind, designation: SpotDesignation? = nil) {
         self.id = UUID()
         self.name = name
         self.latitude = coordinate.latitude
@@ -64,6 +91,7 @@ final class Spot {
         self.zoneKindRaw = kind.rawValue
         self.timesParked = 1
         self.lastParkedAt = .now
+        self.designationRaw = designation?.rawValue
     }
 
     /// Spot-match radius per spec §8 (~40 m).
@@ -74,7 +102,8 @@ final class Spot {
     static let freeMatchRadiusMeters: CLLocationDistance = 150
 
     var matchRadius: CLLocationDistance {
-        zoneKind == .free ? Spot.freeMatchRadiusMeters : Spot.matchRadiusMeters
+        zoneKind == .free || designationRaw != nil
+            ? Spot.freeMatchRadiusMeters : Spot.matchRadiusMeters
     }
 
     func distance(from coordinate: CLLocationCoordinate2D) -> CLLocationDistance {

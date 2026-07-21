@@ -25,8 +25,17 @@ struct SpotsView: View {
                             Section("My Spots") {
                                 ForEach(spots) { spot in
                                     VStack(alignment: .leading, spacing: 3) {
-                                        Text(spot.name)
-                                            .font(.system(size: 16, weight: .semibold))
+                                        HStack(spacing: 6) {
+                                            Text(spot.name)
+                                                .font(.system(size: 16, weight: .semibold))
+                                            if let designation = spot.designation {
+                                                Label(designation.label, systemImage: designation.icon)
+                                                    .font(.system(size: 11, weight: .bold))
+                                                    .padding(.vertical, 2).padding(.horizontal, 7)
+                                                    .background(Color(hex: 0xEFEDE7), in: Capsule())
+                                                    .foregroundStyle(Theme.labelSecondary)
+                                            }
+                                        }
                                         HStack(spacing: 6) {
                                             Text(spot.zoneKind == .free ? "Free parking" : "Zone \(spot.zoneCode)")
                                             Text("·")
@@ -38,6 +47,25 @@ struct SpotsView: View {
                                         .foregroundStyle(Theme.labelSecondary)
                                     }
                                     .padding(.vertical, 2)
+                                    .contextMenu {
+                                        ForEach(SpotDesignation.allCases, id: \.self) { designation in
+                                            if spot.designation != designation {
+                                                Button {
+                                                    spot.designation = designation
+                                                } label: {
+                                                    Label("Mark as \(designation.label) — never remind here",
+                                                          systemImage: designation.icon)
+                                                }
+                                            }
+                                        }
+                                        if spot.designation != nil {
+                                            Button {
+                                                spot.designation = nil
+                                            } label: {
+                                                Label("Remove designation", systemImage: "bell.fill")
+                                            }
+                                        }
+                                    }
                                 }
                                 .onDelete { indexSet in
                                     for index in indexSet { modelContext.delete(spots[index]) }

@@ -33,6 +33,8 @@ struct HomeView: View {
     @State private var showPass = false
     @State private var extending = false
     @State private var dismissed = false
+    /// "I need to pay here today" at a Home/Office spot — one-visit override.
+    @State private var payAnyway = false
     @State private var showShortcutGuide = false
     @AppStorage("morningLeadMinutes") private var morningLeadMinutes = 15
     @AppStorage("defaultHours") private var defaultHours = 1
@@ -44,6 +46,11 @@ struct HomeView: View {
     @FocusState private var zoneFieldFocused: Bool
 
     private var activeSession: Session? { sessions.first(where: \.isActive) }
+    /// The matched Home/Office place, unless the user chose to pay here today.
+    private var designatedSpot: Spot? {
+        guard !payAnyway, let spot = matchedSpot, spot.designation != nil else { return nil }
+        return spot
+    }
     private var recentZones: [String] {
         recentZonesCSV.split(separator: ",").map(String.init).filter { !$0.isEmpty }
     }
@@ -190,6 +197,8 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 0) {
             if let session = activeSession {
                 activeSessionContent(session)
+            } else if let spot = designatedSpot, let designation = spot.designation {
+                designatedContent(spot: spot, designation: designation)
             } else if dismissed {
                 dismissedContent
             } else if verdict.paymentRequired {
@@ -275,18 +284,71 @@ struct HomeView: View {
                         .foregroundStyle(Theme.labelSecondary)
                         .frame(maxWidth: .infinity)
                 }
-                // Field-proven (Jebel Ali): some districts have no Parkin zone
-                // at all. Let the user teach the app, permanently, per spot.
-                Button {
-                    markSpotFree()
+                // Teach the app about this place: your own spot (Home/Office —
+                // paid zone or not, you don't pay here) or a genuinely
+                // unzoned street (field-proven in Jebel Ali).
+                Menu {
+                    Button { markDesignated(.home) } label: {
+                        Label("This is Home — never remind", systemImage: "house.fill")
+                    }
+                    Button { markDesignated(.office) } label: {
+                        Label("This is Office — never remind", systemImage: "building.2.fill")
+                    }
+                    Button { markSpotFree() } label: {
+                        Label("No Parkin zone here — it's free", systemImage: "checkmark.circle")
+                    }
                 } label: {
-                    Text("No paid parking here")
+                    Text("Don't remind me here")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Theme.labelSecondary)
                         .frame(maxWidth: .infinity)
                 }
             }
             .padding(.top, 10)
+        }
+    }
+
+    // Designated place (Home/Office) — the app stays silent here.
+    private func designatedContent(spot: Spot, designation: SpotDesignation) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            TagPill(text: "\(designation.label) · no reminders",
+                    background: Color(hex: 0xEFEDE7),
+                    foreground: Theme.labelSecondary, dot: Theme.labelTertiary)
+
+            Text("You're at \(designation.label.lowercased()).")
+                .font(.system(size: 26, weight: .bold))
+                .kerning(-0.7)
+                .foregroundStyle(Theme.labelPrimary)
+                .padding(.top, 12)
+
+            Text("We stay quiet here — no nags, no morning reminders.")
+                .font(.system(size: 14.5, weight: .medium))
+                .foregroundStyle(Theme.labelSecondary)
+                .padding(.top, 4)
+
+            HStack(spacing: 0) {
+                Button {
+                    payAnyway = true
+                    recomputeVerdict()
+                    syncProtection()
+                } label: {
+                    Text("I need to pay here today")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.coral)
+                        .frame(maxWidth: .infinity)
+                }
+                Button {
+                    spot.designation = nil
+                    recomputeVerdict()
+                    syncProtection()
+                } label: {
+                    Text("Not \(designation.label.lowercased()) anymore")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.labelSecondary)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.top, 14)
         }
     }
 
@@ -514,6 +576,23 @@ struct HomeView: View {
         }
     }
 
+    /// Home/Office: remember this place and stay silent here — the zone may be
+    /// genuinely paid (for visitors), the user just has their own arrangement.
+    private func markDesignated(_ designation: SpotDesignation) {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        if let matched = matchedSpot {
+            matched.designation = designation
+        } else if let coordinate = location.coordinate {
+            let spot = Spot(name: designation.label, coordinate: coordinate,
+                            zoneCode: zoneCode.uppercased(), kind: zoneKind,
+                            designation: designation)
+            modelContext.insert(spot)
+            matchedSpot = spot
+        }
+        payAnyway = false
+        syncProtection()
+    }
+
     /// "No paid parking here": remember this location as free — the verdict
     /// flips now and on every future visit within the spot radius.
     private func markSpotFree() {
@@ -561,6 +640,7 @@ struct HomeView: View {
     private func runPipeline() {
         dismissed = false
         manualZoneEntry = false
+        payAnyway = false
         hours = max(1, defaultHours)
         location.requestOneShot()
         recomputeVerdict()
@@ -600,7 +680,7 @@ struct HomeView: View {
     private func syncProtection() {
         let manager = NotificationManager.shared
         let now = Date.now
-        if activeSession != nil || dismissed {
+        if activeSession != nil || dismissed || designatedSpot != nil {
             manager.cancelUnpaidNag()
             manager.cancelMorningReminder()
             InterventionLog.discardUnfired(kinds: [.unpaidNag, .morningFreeToPaid],
