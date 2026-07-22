@@ -397,8 +397,10 @@ struct HomeView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.labelTertiary)
 
+                // Letters seen in the wild: A–D street bands, F (Al Sufouh,
+                // field-confirmed 382F), W (lots, e.g. 318W/248W).
                 HStack(spacing: 7) {
-                    ForEach(["A", "B", "C", "D", "W"], id: \.self) { letter in
+                    ForEach(["A", "B", "C", "D", "F", "W"], id: \.self) { letter in
                         Button {
                             zoneCode = "\(community.number)\(letter)"
                             UISelectionFeedbackGenerator().selectionChanged()
