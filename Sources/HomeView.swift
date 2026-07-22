@@ -494,19 +494,21 @@ struct HomeView: View {
                     zoneFieldFocused = false
                     manualZoneEntry = false
                 }
+                // Entering edit mode (however focus arrived — a direct tap or
+                // the "type the code" button) pins the field open while
+                // characters land; see the visibility comment in payContent.
+                .onChange(of: zoneFieldFocused) {
+                    if zoneFieldFocused { manualZoneEntry = true }
+                }
                 .onChange(of: zoneCode) {
                     zoneCode = zoneCode.replacingOccurrences(of: " ", with: "").uppercased()
                 }
                 .padding(13)
                 .background(.white, in: RoundedRectangle(cornerRadius: 13))
                 .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
-                // The whole point of the trigger is "phone out, type the sign" —
-                // have the keyboard ready without an extra tap. Entering edit
-                // mode also pins the field open while characters land.
-                .onAppear {
-                    manualZoneEntry = true
-                    zoneFieldFocused = true
-                }
+                // No auto-focus: the keyboard appears only on the user's own
+                // tap (field-reported — it hijacked every app open, and pinned
+                // manual mode so the chips could never appear).
 
             if !recentZones.isEmpty {
                 HStack(spacing: 7) {
