@@ -33,6 +33,10 @@
 	<string>1</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>parkin</string>
+	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Yalla Park uses your location once, when you park, to recognize the parking zone and show your car on the map. It never leaves your phone.</string>
 	<key>NSSupportsLiveActivities</key>

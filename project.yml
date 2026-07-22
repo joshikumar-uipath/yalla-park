@@ -42,6 +42,7 @@ targets:
             CFBundleURLSchemes: [dxbpark]
         ITSAppUsesNonExemptEncryption: false
         NSSupportsLiveActivities: true
+        LSApplicationQueriesSchemes: [parkin]
   YallaParkWidgets:
     type: app-extension
     platform: iOS

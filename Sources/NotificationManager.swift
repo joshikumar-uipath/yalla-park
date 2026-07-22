@@ -96,12 +96,12 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         guard remindExpiry else { return }
         schedule(id: ID.expirySoon,
                  title: "Parking expires in 10 minutes",
-                 body: "Zone \(zone) — extend from here if you're staying.",
+                 body: "\(zoneLabel(zone)) — extend from here if you're staying.",
                  at: expiresAt.addingTimeInterval(-ParkinRules.expiryWarningLead),
                  category: CategoryID.expiry)
         schedule(id: ID.expired,
                  title: "Parking expired!",
-                 body: "Zone \(zone) — your session has ended. Extend now to avoid a fine.",
+                 body: "\(zoneLabel(zone)) — your session has ended. Extend now to avoid a fine.",
                  at: expiresAt,
                  category: CategoryID.expiry)
     }

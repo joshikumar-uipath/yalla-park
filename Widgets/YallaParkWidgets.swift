@@ -21,7 +21,7 @@ struct ParkingLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 7) {
                         BrandChip()
-                        Text("Zone \(context.attributes.zoneCode)")
+                        Text(zoneLabel(context.attributes.zoneCode))
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(.white)
                     }
@@ -79,7 +79,7 @@ private struct LockScreenMeter: View {
                 Text("Yalla Park")
                     .font(.system(size: 14, weight: .semibold))
                 Spacer()
-                Text("Zone \(context.attributes.zoneCode)")
+                Text(zoneLabel(context.attributes.zoneCode))
                     .font(.system(size: 14, weight: .semibold))
                     .opacity(0.92)
             }
@@ -199,7 +199,7 @@ struct ParkNowView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 5) {
                         BrandChip()
-                        Text("Zone \(session.zoneCode)")
+                        Text(zoneLabel(session.zoneCode))
                             .font(.system(size: 12, weight: .semibold))
                             .opacity(0.92)
                             .lineLimit(1)

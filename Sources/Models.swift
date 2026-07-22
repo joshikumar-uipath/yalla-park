@@ -14,6 +14,8 @@ final class Session {
     var userConfirmedPaid: Bool
     var expiresAt: Date
     var extendedCount: Int
+    /// Paid through the Parkin app (not SMS) — extends go back there too.
+    var paidViaParkinApp: Bool = false
 
     var zoneKind: ZoneKind { ZoneKind(rawValue: zoneKindRaw) ?? .standard }
 

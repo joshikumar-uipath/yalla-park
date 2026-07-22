@@ -35,6 +35,11 @@ struct HomeView: View {
     @State private var dismissed = false
     /// "I need to pay here today" at a Home/Office spot — one-visit override.
     @State private var payAnyway = false
+    /// Waiting for the user to come back from the Parkin app.
+    @State private var awaitingParkinReturn = false
+    /// The pending payment is happening in the Parkin app, not by SMS.
+    @State private var paidViaParkin = false
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showShortcutGuide = false
     @AppStorage("morningLeadMinutes") private var morningLeadMinutes = 15
     @AppStorage("defaultHours") private var defaultHours = 1
@@ -92,9 +97,16 @@ struct HomeView: View {
         .onAppear { runPipeline() }
         .onChange(of: router.parkedTrigger) { runPipeline() }
         .onChange(of: router.extendTrigger) {
-            guard activeSession != nil else { return }
+            guard let session = activeSession else { return }
             extending = true
-            startComposerFlow()
+            if session.paidViaParkinApp { openParkinApp() } else { startComposerFlow() }
+        }
+        // Back from Parkin → the one honest question.
+        .onChange(of: scenePhase) {
+            if scenePhase == .active && awaitingParkinReturn {
+                awaitingParkinReturn = false
+                showConfirm = true
+            }
         }
         .onChange(of: location.fixID) { handleLocationFix() }
         .sheet(isPresented: $showComposer, onDismiss: { showConfirm = true }) {
@@ -106,8 +118,9 @@ struct HomeView: View {
         .sheet(isPresented: $showConfirm) {
             ConfirmPaidSheet(
                 smsBody: smsBody,
+                viaParkinApp: paidViaParkin,
                 onConfirm: confirmPaid,
-                onNotYet: { showConfirm = false }
+                onNotYet: { showConfirm = false; paidViaParkin = false }
             )
         }
         // A sheet, not fullScreenCover, so the pass swipes away naturally;
@@ -272,6 +285,26 @@ struct HomeView: View {
                 .foregroundStyle(Theme.labelTertiary)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 12)
+
+            // No zone code needed — Parkin's own app detects the zone itself.
+            // We stay the reminder layer; they take the payment leg.
+            Button {
+                extending = false
+                openParkinApp()
+            } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: "arrow.up.forward.app.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("Pay in the Parkin app instead")
+                }
+                .font(.system(size: 15, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.coral.opacity(0.6), lineWidth: 1.2))
+                .foregroundStyle(Theme.coral)
+            }
+            .buttonStyle(PressScaleStyle())
+            .padding(.top, 10)
 
             // §15: false trigger (drop-off, passenger) — one tap kills every nag.
             HStack(spacing: 0) {
@@ -511,7 +544,7 @@ struct HomeView: View {
     // State D (M1 mini) — active session
     private func activeSessionContent(_ session: Session) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            TagPill(text: "Paid · Zone \(session.zoneCode)", background: Theme.freeTagBackground,
+            TagPill(text: "Paid · \(zoneLabel(session.zoneCode))", background: Theme.freeTagBackground,
                     foreground: Theme.success, dot: Theme.success)
 
             TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -547,7 +580,7 @@ struct HomeView: View {
 
                 Button {
                     extending = true
-                    startComposerFlow()
+                    if session.paidViaParkinApp { openParkinApp() } else { startComposerFlow() }
                 } label: {
                     HStack(spacing: 7) {
                         Image(systemName: "plus")
@@ -768,6 +801,19 @@ struct HomeView: View {
         }
     }
 
+    /// Hand the payment leg to Parkin's own app — their zone database does the
+    /// detecting. We ask the honest question when the user comes back.
+    private func openParkinApp() {
+        paidViaParkin = true
+        awaitingParkinReturn = true
+        if let scheme = URL(string: ParkinRules.parkinAppScheme),
+           UIApplication.shared.canOpenURL(scheme) {
+            UIApplication.shared.open(scheme)
+        } else if let store = URL(string: ParkinRules.parkinAppStoreURL) {
+            UIApplication.shared.open(store)
+        }
+    }
+
     private func confirmPaid() {
         showConfirm = false
         let haptic = UINotificationFeedbackGenerator()
@@ -790,6 +836,8 @@ struct HomeView: View {
         let session = Session(plate: plate, zoneCode: zoneCode, kind: zoneKind, durationHours: hours)
         session.paymentAttempted = true
         session.userConfirmedPaid = true
+        session.paidViaParkinApp = paidViaParkin
+        paidViaParkin = false
         modelContext.insert(session)
         // A fired nag/morning reminder followed by this payment = a likely save.
         InterventionLog.resolvePayment(zone: session.zoneCode.uppercased(),
@@ -822,6 +870,8 @@ struct HomeView: View {
     }
 
     private func rememberSpotAndZone() {
+        // Parkin-app payments may not know the zone code — nothing to remember.
+        guard !zoneCode.isEmpty else { return }
         var zones = recentZones.filter { $0 != zoneCode.uppercased() }
         zones.insert(zoneCode.uppercased(), at: 0)
         recentZonesCSV = zones.prefix(5).joined(separator: ",")

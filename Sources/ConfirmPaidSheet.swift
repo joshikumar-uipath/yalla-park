@@ -4,17 +4,18 @@ import SwiftUI
 /// and only ever mark a session paid when the user says so.
 struct ConfirmPaidSheet: View {
     let smsBody: String
+    var viaParkinApp = false
     let onConfirm: () -> Void
     let onNotYet: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // SMS preview
+            // Payment preview
             VStack(alignment: .leading, spacing: 5) {
-                Text("To \(ParkinRules.smsNumber)")
+                Text(viaParkinApp ? "In the Parkin app" : "To \(ParkinRules.smsNumber)")
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(Theme.labelSecondary)
-                Text(smsBody)
+                Text(viaParkinApp ? "Parking payment" : smsBody)
                     .font(.system(size: 19, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(Theme.labelPrimary)
@@ -24,12 +25,14 @@ struct ConfirmPaidSheet: View {
             .background(Theme.smsPreviewBackground, in: RoundedRectangle(cornerRadius: 15))
             .padding(.bottom, 16)
 
-            Text("Did Parkin confirm it?")
+            Text(viaParkinApp ? "Did you pay in Parkin?" : "Did Parkin confirm it?")
                 .font(.system(size: 20, weight: .bold))
                 .kerning(-0.4)
                 .foregroundStyle(Theme.labelPrimary)
 
-            Text("Watch for the reply from 7275 — it lists an invoice and expiry. If it says \"Invalid Zone\", fix the zone and resend. We only mark it paid when you say Parkin confirmed.")
+            Text(viaParkinApp
+                 ? "If Parkin shows your session active, you're covered — confirm and the countdown and expiry reminders run here too."
+                 : "Watch for the reply from 7275 — it lists an invoice and expiry. If it says \"Invalid Zone\", fix the zone and resend. We only mark it paid when you say Parkin confirmed.")
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.labelSecondary)
                 .lineSpacing(3)

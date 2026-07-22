@@ -152,7 +152,7 @@ struct PassCard: View {
                     Text("DXB Park")
                         .font(.system(size: 14, weight: .semibold))
                     Spacer()
-                    Text("Zone \(session.zoneCode)")
+                    Text(zoneLabel(session.zoneCode))
                         .font(.system(size: 14, weight: .semibold))
                         .opacity(0.92)
                 }

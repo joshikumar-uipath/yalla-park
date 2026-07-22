@@ -27,6 +27,10 @@ struct Verdict: Equatable {
 
 enum ParkinRules {
     // Payment channels
+    // Hand-off to Parkin's own app (their zone DB does the detecting; we do
+    // the reminding). Scheme unverified-official; store page is the fallback.
+    static let parkinAppScheme = "parkin://"
+    static let parkinAppStoreURL = "https://apps.apple.com/ae/app/parkin/id6657993734"
     static let smsNumber = "7275"
     static let whatsappNumber = "971588009090" // Parkin "Mahboub" chatbot, secondary path
     static let smsCarrierFeeAED = 0.30
