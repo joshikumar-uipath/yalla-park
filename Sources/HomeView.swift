@@ -268,7 +268,10 @@ struct HomeView: View {
              + Text(" an hour here.").foregroundStyle(Theme.labelSecondary))
                 .font(.system(size: 14.5, weight: .medium))
 
-            if zoneCode.isEmpty {
+            // Driven by the editing flag, NOT by zoneCode content — the field
+            // writes zoneCode, so an emptiness check would tear the field out
+            // of the hierarchy on the first typed character (field-reported).
+            if zoneCode.isEmpty || manualZoneEntry {
                 zoneEntry
             }
 
@@ -487,7 +490,10 @@ struct HomeView: View {
                 .autocorrectionDisabled()
                 .focused($zoneFieldFocused)
                 .submitLabel(.done)
-                .onSubmit { zoneFieldFocused = false }
+                .onSubmit {
+                    zoneFieldFocused = false
+                    manualZoneEntry = false
+                }
                 .onChange(of: zoneCode) {
                     zoneCode = zoneCode.replacingOccurrences(of: " ", with: "").uppercased()
                 }
@@ -495,8 +501,12 @@ struct HomeView: View {
                 .background(.white, in: RoundedRectangle(cornerRadius: 13))
                 .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
                 // The whole point of the trigger is "phone out, type the sign" —
-                // have the keyboard ready without an extra tap.
-                .onAppear { zoneFieldFocused = true }
+                // have the keyboard ready without an extra tap. Entering edit
+                // mode also pins the field open while characters land.
+                .onAppear {
+                    manualZoneEntry = true
+                    zoneFieldFocused = true
+                }
 
             if !recentZones.isEmpty {
                 HStack(spacing: 7) {
