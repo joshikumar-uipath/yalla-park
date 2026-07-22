@@ -519,6 +519,19 @@ struct HomeView: View {
                 .font(.system(size: 14.5, weight: .medium))
                 .padding(.top, 4)
 
+            // Accidental "No paid parking here"? One tap takes it back.
+            if zoneKind == .free {
+                Button {
+                    revertFreeSpot()
+                } label: {
+                    Text("Wrong — it's actually paid here")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.coral)
+                        .frame(maxWidth: .infinity)
+                }
+                .padding(.top, 14)
+            }
+
             if let next = verdict.nextChange {
                 HStack(spacing: 8) {
                     Image(systemName: "bell.badge.fill")
@@ -625,6 +638,19 @@ struct HomeView: View {
             matchedSpot = spot
         }
         payAnyway = false
+        syncProtection()
+    }
+
+    /// Undo for an accidental "No paid parking here": forget the free marking
+    /// and re-run the normal decision for this location.
+    private func revertFreeSpot() {
+        if let matched = matchedSpot, matched.zoneKind == .free {
+            modelContext.delete(matched)
+            matchedSpot = nil
+        }
+        zoneKind = .standard
+        zoneCode = ""
+        recomputeVerdict()
         syncProtection()
     }
 
