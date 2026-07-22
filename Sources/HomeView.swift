@@ -238,8 +238,23 @@ struct HomeView: View {
     // State A/B — payment required
     private var payContent: some View {
         VStack(alignment: .leading, spacing: 0) {
-            TagPill(text: zoneCode.isEmpty ? "Paid zone" : "Paid zone · Zone \(zoneCode.uppercased())",
-                    background: Theme.paidTagBackground, foreground: Theme.paidTagText, dot: Theme.coral)
+            HStack(spacing: 10) {
+                TagPill(text: zoneCode.isEmpty ? "Paid zone" : "Paid zone · Zone \(zoneCode.uppercased())",
+                        background: Theme.paidTagBackground, foreground: Theme.paidTagText, dot: Theme.coral)
+                // Mis-tapped a letter or memory filled the wrong code?
+                // Reopen the zone picker without losing the rest of the flow.
+                if !zoneCode.isEmpty {
+                    Button {
+                        zoneCode = ""
+                        manualZoneEntry = false
+                    } label: {
+                        Text("Change")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Theme.coral)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
 
             Text("Pay before you go")
                 .font(.system(size: 26, weight: .bold))
