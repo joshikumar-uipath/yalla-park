@@ -134,6 +134,10 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             content.title = title
             content.body = body
             content.sound = .default
+            // Fine-avoidance is exactly what Time Sensitive exists for: these
+            // must break through Focus (on a call, Work, Driving) or they're
+            // worthless — field report: nag silenced by an on-call Focus.
+            content.interruptionLevel = .timeSensitive
             if let category { content.categoryIdentifier = category }
             let components = Calendar.current.dateComponents(
                 [.year, .month, .day, .hour, .minute, .second], from: date)

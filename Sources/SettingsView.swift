@@ -9,6 +9,7 @@ struct SettingsView: View {
     @AppStorage("remindNag") private var remindNag = true
     @AppStorage("remindExpiry") private var remindExpiry = true
     @AppStorage("morningLeadMinutes") private var morningLeadMinutes = 15
+    @AppStorage("mapSatellite") private var mapSatellite = false
     @Environment(\.modelContext) private var modelContext
     @Query private var sessions: [Session]
     @State private var showGuide = false
@@ -65,6 +66,14 @@ struct SettingsView: View {
                     } label: {
                         Label("Savings — fines likely avoided", systemImage: "shield.checkered")
                     }
+                }
+
+                Section {
+                    Toggle("Satellite imagery", isOn: $mapSatellite)
+                } header: {
+                    Text("Map")
+                } footer: {
+                    Text("Satellite view shows actual parking bays and lot layouts.")
                 }
 
                 Section("Automation") {

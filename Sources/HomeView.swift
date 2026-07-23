@@ -13,6 +13,7 @@ struct HomeView: View {
     @AppStorage("plate") private var plate = ""
     @AppStorage("recentZones") private var recentZonesCSV = ""
     @AppStorage("debugForcePaid") private var debugForcePaid = false
+    @AppStorage("mapSatellite") private var mapSatellite = false
 
     @State private var location = LocationService()
     @State private var camera: MapCameraPosition = .region(
@@ -143,7 +144,9 @@ struct HomeView: View {
                 }
             }
         }
-        .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+        .mapStyle(mapSatellite
+                  ? .hybrid(elevation: .flat, pointsOfInterest: .excludingAll)
+                  : .standard(elevation: .flat, pointsOfInterest: .excludingAll))
         .ignoresSafeArea()
         // Tap the map = put the keyboard away.
         .simultaneousGesture(TapGesture().onEnded { zoneFieldFocused = false })
@@ -862,8 +865,14 @@ struct HomeView: View {
         if let scheme = URL(string: ParkinRules.parkinAppScheme),
            UIApplication.shared.canOpenURL(scheme) {
             UIApplication.shared.open(scheme)
-        } else if let store = URL(string: ParkinRules.parkinAppStoreURL) {
-            UIApplication.shared.open(store)
+        } else if let universal = URL(string: ParkinRules.parkinUniversalLink) {
+            // Their AASA routes /clip* into the app (or its App Clip). Only if
+            // iOS can't hand it to the app do we fall back to the store page.
+            UIApplication.shared.open(universal, options: [.universalLinksOnly: true]) { opened in
+                if !opened, let store = URL(string: ParkinRules.parkinAppStoreURL) {
+                    UIApplication.shared.open(store)
+                }
+            }
         }
     }
 

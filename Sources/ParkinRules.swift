@@ -30,6 +30,10 @@ enum ParkinRules {
     // Hand-off to Parkin's own app (their zone DB does the detecting; we do
     // the reminding). Scheme unverified-official; store page is the fallback.
     static let parkinAppScheme = "parkin://"
+    /// From parkin.ae's AASA (bundle com.parkin.parkinapp): /clip* is a
+    /// universal link — routes into the full app when installed, or their
+    /// instant App Clip pay flow when not.
+    static let parkinUniversalLink = "https://www.parkin.ae/clip"
     static let parkinAppStoreURL = "https://apps.apple.com/ae/app/parkin/id6657993734"
     static let smsNumber = "7275"
     static let whatsappNumber = "971588009090" // Parkin "Mahboub" chatbot, secondary path
