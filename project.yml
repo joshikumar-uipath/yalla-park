@@ -31,7 +31,6 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.com.avjoshi.dxbpark
-        com.apple.developer.usernotifications.time-sensitive: true
     info:
       path: Sources/Info.plist
       properties:
