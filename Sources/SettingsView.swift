@@ -14,15 +14,7 @@ struct SettingsView: View {
     @Query private var sessions: [Session]
     @State private var showGuide = false
 
-    /// True in Xcode debug runs and TestFlight installs; false for App Store copies —
-    /// so the testing section disappears automatically at public release.
-    private var isTestBuild: Bool {
-        #if DEBUG
-        return true
-        #else
-        return Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
-        #endif
-    }
+    private var isTestBuild: Bool { DemoData.isTestBuild }
 
     var body: some View {
         NavigationStack {

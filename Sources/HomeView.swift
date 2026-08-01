@@ -103,7 +103,11 @@ struct HomeView: View {
                 zoneFieldFocused = false
             }
         }
-        .onAppear { runPipeline() }
+        .onAppear {
+            runPipeline()
+            // Screenshot/design-iteration hook.
+            if CommandLine.arguments.contains("-showSavings") { showLedger = true }
+        }
         .onChange(of: router.parkedTrigger) { runPipeline() }
         .onChange(of: router.extendTrigger) {
             guard let session = activeSession else { return }

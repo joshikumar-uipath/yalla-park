@@ -80,6 +80,7 @@ struct DXBParkApp: App {
                     OnboardingView { hasOnboarded = true }
                 }
                 .task {
+                    DemoData.seedIfEmpty(in: container.mainContext)
                     NotificationManager.shared.onOpenParked = { [weak router] in
                         router?.openParked()
                     }

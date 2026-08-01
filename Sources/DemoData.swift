@@ -8,6 +8,28 @@ import SwiftData
 enum DemoData {
     static let zones = ["318C", "382F", "248W", "334B", "365A", "112D"]
 
+    /// True in Xcode debug runs and TestFlight installs; false on the App
+    /// Store — demo behavior disappears automatically at public release.
+    static var isTestBuild: Bool {
+        #if DEBUG
+        return true
+        #else
+        return Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
+        #endif
+    }
+
+    /// Presentation guarantee for TestFlight: an empty ledger auto-fills with
+    /// six months of demo history at launch, so the dashboard never demos as
+    /// zeros. Real usage accrues on top; "Clear stats & history" + relaunch
+    /// reseeds. Never runs on App Store builds.
+    static func seedIfEmpty(in context: ModelContext) {
+        guard isTestBuild else { return }
+        let existing = (try? context.fetchCount(FetchDescriptor<InterventionEvent>(
+            predicate: #Predicate { $0.decisive }))) ?? 0
+        guard existing == 0 else { return }
+        seedSixMonths(in: context)
+    }
+
     static func seedSixMonths(in context: ModelContext, now: Date = .now,
                               calendar: Calendar = .current) {
         guard let currentMonth = calendar.dateInterval(of: .month, for: now)?.start
