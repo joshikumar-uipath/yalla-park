@@ -54,6 +54,8 @@ enum ParkinRules {
     static let nagResolveWindow: TimeInterval = 30 * 60
     /// Expiry warning fires this long before a session lapses.
     static let expiryWarningLead: TimeInterval = 10 * 60
+    /// Recap card appears once this many confirmed sessions exist.
+    static let recapMinimumSessions = 5
 
     // Cost estimates ONLY — never present as exact. Zone letter is a hint.
     static func estimatedRateAED(zone: String, kind: ZoneKind) -> Int {

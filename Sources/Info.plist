@@ -37,6 +37,8 @@
 	<array>
 		<string>parkin</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>The camera reads the zone code straight off the parking sign. Nothing is stored or uploaded.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Yalla Park uses your location once, when you park, to recognize the parking zone and show your car on the map. It never leaves your phone.</string>
 	<key>NSSupportsLiveActivities</key>

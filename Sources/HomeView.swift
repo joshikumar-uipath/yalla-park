@@ -49,6 +49,7 @@ struct HomeView: View {
     /// Home savings card: dismiss hides it until the save count grows again.
     @AppStorage("savingsCardDismissedCount") private var savingsCardDismissedCount = 0
     @State private var showLedger = false
+    @State private var showScanner = false
     @FocusState private var zoneFieldFocused: Bool
 
     private var activeSession: Session? { sessions.first(where: \.isActive) }
@@ -94,6 +95,13 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showLedger) {
             NavigationStack { SavingsLedgerView() }
+        }
+        .sheet(isPresented: $showScanner) {
+            ZoneScannerSheet { code in
+                zoneCode = code
+                manualZoneEntry = false
+                zoneFieldFocused = false
+            }
         }
         .onAppear { runPipeline() }
         .onChange(of: router.parkedTrigger) { runPipeline() }
@@ -470,18 +478,35 @@ struct HomeView: View {
                     }
                 }
 
-                Button {
-                    manualZoneEntry = true
-                    zoneFieldFocused = true
-                } label: {
-                    Text("Different zone? Type the code")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
+                HStack(spacing: 18) {
+                    Button {
+                        manualZoneEntry = true
+                        zoneFieldFocused = true
+                    } label: {
+                        Text("Different zone? Type the code")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Theme.coral)
+                    }
+                    scanSignButton
                 }
             }
             .padding(.top, 14)
         } else {
             manualZoneField
+        }
+    }
+
+    /// Task 5: read the full code (number + letter) off the sign, on-device.
+    @ViewBuilder
+    private var scanSignButton: some View {
+        if ZoneScan.isSupported {
+            Button {
+                showScanner = true
+            } label: {
+                Label("Scan the sign", systemImage: "camera.viewfinder")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+            }
         }
     }
 
@@ -512,6 +537,8 @@ struct HomeView: View {
                 // No auto-focus: the keyboard appears only on the user's own
                 // tap (field-reported — it hijacked every app open, and pinned
                 // manual mode so the chips could never appear).
+
+            scanSignButton
 
             if !recentZones.isEmpty {
                 HStack(spacing: 7) {

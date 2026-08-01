@@ -66,6 +66,16 @@ struct SettingsView: View {
                     } label: {
                         Label("Savings — fines likely avoided", systemImage: "shield.checkered")
                     }
+                    // Threshold-gated so a two-session recap doesn't feel silly;
+                    // always visible in test builds (the "force generate" path).
+                    if sessions.filter(\.userConfirmedPaid).count >= ParkinRules.recapMinimumSessions
+                        || isTestBuild {
+                        NavigationLink {
+                            RecapScreen()
+                        } label: {
+                            Label("Your year in parking", systemImage: "sparkles")
+                        }
+                    }
                 }
 
                 Section {
