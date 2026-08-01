@@ -27,6 +27,7 @@
 		86387C5E7195B84FB7D8CD1B /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1EB1DD7EDA76FBEA7B6E466 /* OnboardingView.swift */; };
 		8A1AA41C88D6153E540A9CBF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B0EFE03B718B1BA8F1C9E8F1 /* Assets.xcassets */; };
 		8DBF837B2EEAEC85252130B7 /* ConfirmPaidSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BC94D6118A506B4D3ADB05A /* ConfirmPaidSheet.swift */; };
+		9B8B05E4A43A3A6647137696 /* DemoData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EDFB23F3A6D7E2956407CAB /* DemoData.swift */; };
 		9CBE94B426A040CB36B15FE4 /* ParkingActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CFDC07F993FDF17DF849A3D /* ParkingActivity.swift */; };
 		A7E1853E6C3F180D7DADC941 /* ParkingActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CFDC07F993FDF17DF849A3D /* ParkingActivity.swift */; };
 		B1117A40E8ACE1EE302D0631 /* AppIntentsSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66C78CC69BDCEAF660325E96 /* AppIntentsSupport.swift */; };
@@ -90,6 +91,7 @@
 		66C78CC69BDCEAF660325E96 /* AppIntentsSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIntentsSupport.swift; sourceTree = "<group>"; };
 		693D09103F7F26DD21D4ECAA /* ParkinRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkinRules.swift; sourceTree = "<group>"; };
 		6D8C53CC5574D36358A3ECA8 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		6EDFB23F3A6D7E2956407CAB /* DemoData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoData.swift; sourceTree = "<group>"; };
 		7284CF89BC16DFD8B03F8988 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		7CFDC07F993FDF17DF849A3D /* ParkingActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingActivity.swift; sourceTree = "<group>"; };
 		898777D70C0010C1F557DC14 /* DXBPark.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DXBPark.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -121,6 +123,7 @@
 				66C78CC69BDCEAF660325E96 /* AppIntentsSupport.swift */,
 				B0EFE03B718B1BA8F1C9E8F1 /* Assets.xcassets */,
 				5BC94D6118A506B4D3ADB05A /* ConfirmPaidSheet.swift */,
+				6EDFB23F3A6D7E2956407CAB /* DemoData.swift */,
 				62F2A73C5EDD917B0B2823F0 /* DXBPark.entitlements */,
 				F7FDC965098FF74EAC824B55 /* DXBParkApp.swift */,
 				7284CF89BC16DFD8B03F8988 /* HomeView.swift */,
@@ -319,6 +322,7 @@
 				B1117A40E8ACE1EE302D0631 /* AppIntentsSupport.swift in Sources */,
 				8DBF837B2EEAEC85252130B7 /* ConfirmPaidSheet.swift in Sources */,
 				168E196AA3DBDF64BFE7DA54 /* DXBParkApp.swift in Sources */,
+				9B8B05E4A43A3A6647137696 /* DemoData.swift in Sources */,
 				1A8AD0426718D39011BC200E /* HomeView.swift in Sources */,
 				6F67F70D6A73237B98B7FD78 /* LiveActivityManager.swift in Sources */,
 				20C01D2680A87BE319BCF25B /* LocationService.swift in Sources */,

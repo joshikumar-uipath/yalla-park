@@ -274,6 +274,30 @@ final class InterventionTests: XCTestCase {
         XCTAssertEqual(slices[1].savedAED, 150)
     }
 
+    // MARK: - Demo seeder (test-build showcase data)
+
+    func testDemoSeedCoversSixMonthsAllKindsAndOneFine() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Dubai")!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 7, day: 28, hour: 12))!
+
+        DemoData.seedSixMonths(in: context, now: now, calendar: calendar)
+
+        let events = allEvents
+        let slices = SavingsStats.monthlySaves(events: events, months: 6,
+                                               now: now, calendar: calendar)
+        XCTAssertEqual(slices.count, 6)
+        XCTAssertTrue(slices.allSatisfy { $0.saves > 0 }, "every month has saves to chart")
+        let kinds = Set(events.filter(\.decisive).map(\.kind))
+        XCTAssertEqual(kinds, Set(InterventionKind.allCases), "all save types present")
+        let totals = SavingsStats.totals(in: context, now: now)
+        XCTAssertEqual(totals.finesReported, 1, "honesty row present")
+        XCTAssertEqual(totals.likelySaves, slices.map(\.saves).reduce(0, +))
+        let sessions = (try? context.fetch(FetchDescriptor<Session>())) ?? []
+        XCTAssertGreaterThanOrEqual(sessions.count, ParkinRules.recapMinimumSessions)
+        XCTAssertFalse(ActivityLog.counts(in: context).isEmpty)
+    }
+
     // MARK: - Rescheduling upserts, it never stacks duplicates
 
     func testReschedulingUpdatesUnfiredEventInPlace() {

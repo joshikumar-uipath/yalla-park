@@ -9,10 +9,25 @@ import SwiftData
 /// normally, with no fired reminder preceding it, is never a save. Copy built
 /// on this data must always say "likely" / "about" — never certainty.
 
-enum InterventionKind: String, Codable {
+enum InterventionKind: String, Codable, CaseIterable {
     case morningFreeToPaid  // layer 3: free now, enforcement starts soon
     case unpaidNag          // layer 4a: dismissed a paid zone without paying
     case expiryWarning      // layer 4b: session about to lapse
+
+    var displayLabel: String {
+        switch self {
+        case .morningFreeToPaid: return String(localized: "Morning reminders")
+        case .unpaidNag: return String(localized: "Unpaid nags")
+        case .expiryWarning: return String(localized: "Expiry warnings")
+        }
+    }
+    var icon: String {
+        switch self {
+        case .morningFreeToPaid: return "sunrise.fill"
+        case .unpaidNag: return "bell.badge.fill"
+        case .expiryWarning: return "clock.badge.exclamationmark.fill"
+        }
+    }
 }
 
 enum InterventionOutcome: String, Codable {
@@ -131,6 +146,20 @@ struct MonthlySlice: Equatable {
     var savedAED: Decimal
 }
 
+/// Per-kind stack segment of a month, for the stacked dashboard chart.
+struct MonthlyKindSlice: Equatable {
+    var month: Date
+    var kind: InterventionKind
+    var savedAED: Decimal
+}
+
+/// "Which defense layer earned the saves" — the types-of-savings breakdown.
+struct KindBreakdown: Equatable {
+    var kind: InterventionKind
+    var saves: Int
+    var savedAED: Decimal
+}
+
 extension SavingsStats {
     /// Decisive saves bucketed by month (oldest → newest), covering the last
     /// `months` months including the current one. Empty months included so the
@@ -155,6 +184,38 @@ extension SavingsStats {
             slices[index].savedAED += event.estimatedFineAvoidedAED
         }
         return slices
+    }
+
+    /// Stacked-chart variant: month × kind (zero segments included so every
+    /// month renders, and stacks stay in a stable kind order).
+    static func monthlyKindSaves(events: [InterventionEvent], months: Int = 6,
+                                 now: Date = .now,
+                                 calendar: Calendar = .current) -> [MonthlyKindSlice] {
+        let base = monthlySaves(events: events, months: months, now: now, calendar: calendar)
+        var slices: [MonthlyKindSlice] = base.flatMap { slice in
+            InterventionKind.allCases.map {
+                MonthlyKindSlice(month: slice.month, kind: $0, savedAED: 0)
+            }
+        }
+        for event in events where event.decisive {
+            let anchor = event.resolvedAt ?? event.firedAt
+            guard let month = calendar.dateInterval(of: .month, for: anchor)?.start,
+                  let index = slices.firstIndex(where: {
+                      $0.month == month && $0.kind == event.kind }) else { continue }
+            slices[index].savedAED += event.estimatedFineAvoidedAED
+        }
+        return slices
+    }
+
+    /// Types-of-savings rollup: which defense layer earned what.
+    static func savesByKind(events: [InterventionEvent]) -> [KindBreakdown] {
+        InterventionKind.allCases.compactMap { kind in
+            let matching = events.filter { $0.decisive && $0.kind == kind }
+            guard !matching.isEmpty else { return nil }
+            return KindBreakdown(kind: kind, saves: matching.count,
+                                 savedAED: matching.reduce(Decimal(0)) {
+                                     $0 + $1.estimatedFineAvoidedAED })
+        }
     }
 }
 

@@ -126,6 +126,12 @@ struct SettingsView: View {
                         Button("Fire test notifications (4 s + 8 s)") {
                             NotificationManager.shared.fireTestNotifications()
                         }
+                        Button("Seed 6 months of demo stats") {
+                            DemoData.seedSixMonths(in: modelContext)
+                        }
+                        Button("Clear stats & history", role: .destructive) {
+                            DemoData.clearStats(in: modelContext)
+                        }
                         // Savings-model accuracy at a glance (Task 2): if fines
                         // creep up relative to saves, the windows need tuning.
                         let totals = SavingsStats.totals(in: modelContext)

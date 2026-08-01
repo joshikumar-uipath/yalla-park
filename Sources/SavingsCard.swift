@@ -81,7 +81,9 @@ struct SavingsLedgerView: View {
                     .listRowBackground(Color.clear)
             }
 
+            tilesSection
             monthlyChartSection
+            savesByKindSection
             activitySection
 
             if saves.isEmpty {
@@ -112,32 +114,114 @@ struct SavingsLedgerView: View {
         .navigationTitle("Savings")
     }
 
-    // MARK: Monthly ledger chart
+    // MARK: Summary tiles
+
+    private var tilesSection: some View {
+        Section {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                statTile("\(totals.likelySaves)", "fines likely dodged")
+                statTile("~\(formatAED(totals.avoidedAED))", "AED likely avoided")
+                statTile("\(sessions.filter(\.userConfirmedPaid).count)", "sessions paid")
+                statTile("~\(formatAED(SavingsStats.estimatedSpendAED(sessions: sessions)))",
+                         "AED spent parking")
+            }
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+        }
+    }
+
+    private func statTile(_ value: String, _ caption: String) -> some View {
+        VStack(spacing: 3) {
+            Text(value)
+                .font(.system(size: 26, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(Theme.labelPrimary)
+            Text(caption)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.labelSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: .black.opacity(0.04), radius: 5, y: 2)
+    }
+
+    // MARK: Monthly ledger chart (stacked by save type)
 
     @ViewBuilder
     private var monthlyChartSection: some View {
-        let slices = SavingsStats.monthlySaves(events: events)
-        if slices.contains(where: { $0.saves > 0 }) {
+        let slices = SavingsStats.monthlyKindSaves(events: events)
+        if slices.contains(where: { $0.savedAED > 0 }) {
             Section {
-                Chart(slices, id: \.month) { slice in
+                Chart(Array(slices.enumerated()), id: \.offset) { _, slice in
                     BarMark(
                         x: .value("Month", slice.month, unit: .month),
                         y: .value("AED", NSDecimalNumber(decimal: slice.savedAED).doubleValue)
                     )
-                    .foregroundStyle(Theme.coral.gradient)
-                    .cornerRadius(5)
+                    .foregroundStyle(by: .value("Type", slice.kind.displayLabel))
+                    .cornerRadius(4)
                 }
+                .chartForegroundStyleScale([
+                    InterventionKind.morningFreeToPaid.displayLabel: Color(hex: 0xFF9A54),
+                    InterventionKind.unpaidNag.displayLabel: Theme.coral,
+                    InterventionKind.expiryWarning.displayLabel: Color(hex: 0xFF5168),
+                ])
                 .chartXAxis {
                     AxisMarks(values: .stride(by: .month)) { _ in
                         AxisValueLabel(format: .dateTime.month(.narrow))
                     }
                 }
-                .frame(height: 140)
+                .frame(height: 160)
                 .padding(.vertical, 6)
             } header: {
                 Text("Likely avoided, by month")
             } footer: {
                 Text("~AED per month from the receipts below — estimates, never certainties.")
+            }
+        }
+    }
+
+    // MARK: Where the saves came from (types of savings)
+
+    @ViewBuilder
+    private var savesByKindSection: some View {
+        let breakdown = SavingsStats.savesByKind(events: events)
+        if !breakdown.isEmpty || totals.finesReported > 0 {
+            Section {
+                ForEach(breakdown, id: \.kind) { entry in
+                    HStack(spacing: 10) {
+                        Image(systemName: entry.kind.icon)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Theme.coral)
+                            .frame(width: 22)
+                        Text(entry.kind.displayLabel)
+                            .font(.system(size: 14.5, weight: .medium))
+                        Spacer()
+                        Text("\(entry.saves)× · ~AED \(formatAED(entry.savedAED))")
+                            .font(.system(size: 14, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundStyle(Theme.labelPrimary)
+                    }
+                }
+                if totals.finesReported > 0 {
+                    HStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.orange)
+                            .frame(width: 22)
+                        Text("Fines that got through")
+                            .font(.system(size: 14.5, weight: .medium))
+                        Spacer()
+                        Text("\(totals.finesReported)× · AED \(formatAED(totals.finesReportedAED))")
+                            .font(.system(size: 14, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundStyle(.orange)
+                    }
+                }
+            } header: {
+                Text("Where the saves came from")
+            } footer: {
+                Text("Each defense layer, with what it likely caught — and, honestly, what slipped past.")
             }
         }
     }

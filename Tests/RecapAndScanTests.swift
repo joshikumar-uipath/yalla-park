@@ -54,6 +54,25 @@ final class RecapAndScanTests: XCTestCase {
         XCTAssertEqual(stats.busiestWeekday, "Monday")
     }
 
+    // MARK: - Types-of-savings breakdown
+
+    func testSavesByKindCountsDecisiveOnly() {
+        let base = Date(timeIntervalSince1970: 1_800_000_000)
+        let nag = InterventionEvent(kind: .unpaidNag, firedAt: base, deadline: base, zoneCode: "318C")
+        nag.decisive = true; nag.estimatedFineAvoidedAED = 150
+        let morning = InterventionEvent(kind: .morningFreeToPaid, firedAt: base, deadline: base, zoneCode: "318C")
+        morning.decisive = true; morning.estimatedFineAvoidedAED = 150
+        let nag2 = InterventionEvent(kind: .unpaidNag, firedAt: base, deadline: base, zoneCode: "382F")
+        nag2.decisive = true; nag2.estimatedFineAvoidedAED = 150
+        let notDecisive = InterventionEvent(kind: .expiryWarning, firedAt: base, deadline: base, zoneCode: "382F")
+
+        let breakdown = SavingsStats.savesByKind(events: [nag, morning, nag2, notDecisive])
+        XCTAssertEqual(breakdown.count, 2) // expiry had no decisive save → omitted
+        XCTAssertEqual(breakdown.first { $0.kind == .unpaidNag }?.saves, 2)
+        XCTAssertEqual(breakdown.first { $0.kind == .unpaidNag }?.savedAED, 300)
+        XCTAssertEqual(breakdown.first { $0.kind == .morningFreeToPaid }?.saves, 1)
+    }
+
     // MARK: - Zone-code extraction from scanned sign text (Task 5)
 
     func testExtractsZoneCodeFromSignText() {
