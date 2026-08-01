@@ -14,7 +14,7 @@ final class InterventionTests: XCTestCase {
 
     override func setUpWithError() throws {
         container = try ModelContainer(
-            for: Session.self, Spot.self, InterventionEvent.self,
+            for: Session.self, Spot.self, InterventionEvent.self, ActivityEvent.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         context = ModelContext(container)
     }
@@ -236,6 +236,42 @@ final class InterventionTests: XCTestCase {
         paid.userConfirmedPaid = true          // 318C → ~AED 4/h × 2h = 8
         let unconfirmed = Session(plate: "A1", zoneCode: "318C", kind: .standard, durationHours: 3)
         XCTAssertEqual(SavingsStats.estimatedSpendAED(sessions: [paid, unconfirmed]), 8)
+    }
+
+    // MARK: - Activity log + monthly dashboard slices
+
+    func testActivityLogDebouncesRepeatVisits() {
+        ActivityLog.log(.quietArrival, label: "Home", in: context, now: t(0))
+        ActivityLog.log(.quietArrival, label: "Home", in: context, now: t(60))          // same visit
+        ActivityLog.log(.quietArrival, label: "Home", in: context,
+                        now: t(ParkinRules.activityDebounce + 60))                      // new visit
+        ActivityLog.log(.parkinOpened, in: context, now: t(60))                         // different kind
+        let counts = ActivityLog.counts(in: context)
+        XCTAssertEqual(counts[.quietArrival], 2)
+        XCTAssertEqual(counts[.parkinOpened], 1)
+    }
+
+    func testMonthlySavesBucketsDecisiveOnly() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Dubai")!
+        let june = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15))!
+        let july = calendar.date(from: DateComponents(year: 2026, month: 7, day: 10))!
+
+        let save1 = InterventionEvent(kind: .unpaidNag, firedAt: june, deadline: june,
+                                      zoneCode: "318C")
+        save1.decisive = true; save1.estimatedFineAvoidedAED = 150; save1.resolvedAt = june
+        let save2 = InterventionEvent(kind: .expiryWarning, firedAt: july, deadline: july,
+                                      zoneCode: "382F")
+        save2.decisive = true; save2.estimatedFineAvoidedAED = 150; save2.resolvedAt = july
+        let noSave = InterventionEvent(kind: .unpaidNag, firedAt: july, deadline: july,
+                                       zoneCode: "382F") // not decisive
+
+        let slices = SavingsStats.monthlySaves(events: [save1, save2, noSave], months: 3,
+                                               now: july, calendar: calendar)
+        XCTAssertEqual(slices.count, 3)
+        XCTAssertEqual(slices.map(\.saves), [0, 1, 1])       // May, June, July
+        XCTAssertEqual(slices.last?.savedAED, 150)
+        XCTAssertEqual(slices[1].savedAED, 150)
     }
 
     // MARK: - Rescheduling upserts, it never stacks duplicates

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Charts
 
 /// Task 3 — the savings surface. Every number on these views traces to a
 /// decisive InterventionEvent visible in the ledger below; no multipliers.
@@ -80,6 +81,9 @@ struct SavingsLedgerView: View {
                     .listRowBackground(Color.clear)
             }
 
+            monthlyChartSection
+            activitySection
+
             if saves.isEmpty {
                 Section {
                     Text("No saves yet — we'll start counting the first time a reminder catches a fine for you.")
@@ -106,6 +110,79 @@ struct SavingsLedgerView: View {
             }
         }
         .navigationTitle("Savings")
+    }
+
+    // MARK: Monthly ledger chart
+
+    @ViewBuilder
+    private var monthlyChartSection: some View {
+        let slices = SavingsStats.monthlySaves(events: events)
+        if slices.contains(where: { $0.saves > 0 }) {
+            Section {
+                Chart(slices, id: \.month) { slice in
+                    BarMark(
+                        x: .value("Month", slice.month, unit: .month),
+                        y: .value("AED", NSDecimalNumber(decimal: slice.savedAED).doubleValue)
+                    )
+                    .foregroundStyle(Theme.coral.gradient)
+                    .cornerRadius(5)
+                }
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .month)) { _ in
+                        AxisValueLabel(format: .dateTime.month(.narrow))
+                    }
+                }
+                .frame(height: 140)
+                .padding(.vertical, 6)
+            } header: {
+                Text("Likely avoided, by month")
+            } footer: {
+                Text("~AED per month from the receipts below — estimates, never certainties.")
+            }
+        }
+    }
+
+    // MARK: Everything else the app caught
+
+    @ViewBuilder
+    private var activitySection: some View {
+        let counts = ActivityLog.counts(in: modelContext)
+        if !counts.isEmpty {
+            Section {
+                activityRow("arrow.up.forward.app.fill", "Handed off to the Parkin app",
+                            counts[.parkinOpened])
+                activityRow("message.fill", "SMS payments started", counts[.smsPayStarted])
+                activityRow("hand.raised.fill", "False triggers dismissed",
+                            counts[.notParkingDismissed])
+                activityRow("house.fill", "Quiet arrivals at Home/Office",
+                            counts[.quietArrival])
+                activityRow("checkmark.circle.fill", "Arrivals at your free spots",
+                            counts[.freeArrival])
+            } header: {
+                Text("The app had your back")
+            } footer: {
+                Text("Activity, not money — the AED figures above only ever come from reminder-caused saves.")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func activityRow(_ icon: String, _ title: String, _ count: Int?) -> some View {
+        if let count, count > 0 {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                    .frame(width: 22)
+                Text(title)
+                    .font(.system(size: 14.5, weight: .medium))
+                Spacer()
+                Text("\(count)×")
+                    .font(.system(size: 15, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.labelPrimary)
+            }
+        }
     }
 
     private func receiptText(for event: InterventionEvent) -> String {

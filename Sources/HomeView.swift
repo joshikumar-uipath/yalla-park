@@ -339,6 +339,7 @@ struct HomeView: View {
             HStack(spacing: 0) {
                 Button {
                     dismissed = true
+                    ActivityLog.log(.notParkingDismissed, in: modelContext)
                     syncProtection()
                 } label: {
                     Text("I'm not parking here")
@@ -847,6 +848,14 @@ struct HomeView: View {
         }
         // District lookup: pre-fills the zone *number*; the sign supplies the letter.
         suggestedCommunity = ZoneLocator.community(at: coordinate)
+        // Quiet value moments, debounced to one per visit.
+        if let spot = matchedSpot {
+            if let designation = spot.designation {
+                ActivityLog.log(.quietArrival, label: designation.label, in: modelContext)
+            } else if spot.zoneKind == .free {
+                ActivityLog.log(.freeArrival, label: spot.name, in: modelContext)
+            }
+        }
         recomputeVerdict()
         syncProtection()
     }
@@ -872,6 +881,7 @@ struct HomeView: View {
 
     private func startPay() {
         extending = false
+        ActivityLog.log(.smsPayStarted, label: zoneCode.uppercased(), in: modelContext)
         startComposerFlow()
     }
 
@@ -887,6 +897,7 @@ struct HomeView: View {
     /// Hand the payment leg to Parkin's own app — their zone database does the
     /// detecting. We ask the honest question when the user comes back.
     private func openParkinApp() {
+        ActivityLog.log(.parkinOpened, label: zoneCode.uppercased(), in: modelContext)
         paidViaParkin = true
         awaitingParkinReturn = true
         if let scheme = URL(string: ParkinRules.parkinAppScheme),

@@ -44,7 +44,7 @@ struct DXBParkApp: App {
     /// fatalError-ing at launch (`.modelContainer(for:)` crashes on failure —
     /// on a device that means a permanent crash loop until reinstall).
     private let container: ModelContainer = {
-        let schema = Schema([Session.self, Spot.self, InterventionEvent.self])
+        let schema = Schema([Session.self, Spot.self, InterventionEvent.self, ActivityEvent.self])
         if let container = try? ModelContainer(for: schema) { return container }
         // Store incompatible or corrupt: drop it and start fresh — losing local
         // history beats an unlaunchable app.

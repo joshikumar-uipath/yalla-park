@@ -70,6 +70,94 @@ final class InterventionEvent {
     }
 }
 
+// MARK: - Activity log (dashboard requested from field use)
+
+/// Moments the app earned its keep that aren't reminder-caused saves: hand-offs
+/// to Parkin, SMS pays, false-trigger dismissals, quiet arrivals at Home/Office
+/// or free spots. Counted as ACTIVITY on the dashboard — never as money; AED
+/// figures come exclusively from decisive InterventionEvents.
+enum ActivityKind: String, Codable, CaseIterable {
+    case parkinOpened       // tapped "Pay in the Parkin app"
+    case smsPayStarted      // opened the SMS composer to pay
+    case notParkingDismissed // "I'm not parking here" (false trigger caught)
+    case quietArrival       // arrived at Home/Office — app stayed silent
+    case freeArrival        // arrived at a user-marked free spot
+}
+
+@Model
+final class ActivityEvent {
+    var id: UUID
+    var kindRaw: String
+    var at: Date
+    var label: String
+
+    var kind: ActivityKind { ActivityKind(rawValue: kindRaw) ?? .quietArrival }
+
+    init(kind: ActivityKind, at: Date = .now, label: String = "") {
+        self.id = UUID()
+        self.kindRaw = kind.rawValue
+        self.at = at
+        self.label = label
+    }
+}
+
+enum ActivityLog {
+    /// Log once per "visit": repeated pipeline runs at the same place within
+    /// the debounce window collapse into one event.
+    static func log(_ kind: ActivityKind, label: String = "",
+                    in context: ModelContext, now: Date = .now) {
+        let raw = kind.rawValue
+        var descriptor = FetchDescriptor<ActivityEvent>(
+            predicate: #Predicate { $0.kindRaw == raw },
+            sortBy: [SortDescriptor(\.at, order: .reverse)])
+        descriptor.fetchLimit = 1
+        if let last = (try? context.fetch(descriptor))?.first,
+           now.timeIntervalSince(last.at) < ParkinRules.activityDebounce {
+            return
+        }
+        context.insert(ActivityEvent(kind: kind, at: now, label: label))
+    }
+
+    static func counts(in context: ModelContext) -> [ActivityKind: Int] {
+        let events = (try? context.fetch(FetchDescriptor<ActivityEvent>())) ?? []
+        return Dictionary(grouping: events, by: \.kind).mapValues(\.count)
+    }
+}
+
+/// One month of the honest ledger, for the dashboard chart.
+struct MonthlySlice: Equatable {
+    var month: Date        // first instant of the month
+    var saves: Int
+    var savedAED: Decimal
+}
+
+extension SavingsStats {
+    /// Decisive saves bucketed by month (oldest → newest), covering the last
+    /// `months` months including the current one. Empty months included so the
+    /// chart reads as a timeline, not a lineup of survivors.
+    static func monthlySaves(events: [InterventionEvent], months: Int = 6,
+                             now: Date = .now,
+                             calendar: Calendar = .current) -> [MonthlySlice] {
+        guard months > 0,
+              let currentMonth = calendar.dateInterval(of: .month, for: now)?.start
+        else { return [] }
+        var slices: [MonthlySlice] = []
+        for offset in stride(from: -(months - 1), through: 0, by: 1) {
+            guard let month = calendar.date(byAdding: .month, value: offset, to: currentMonth)
+            else { continue }
+            slices.append(MonthlySlice(month: month, saves: 0, savedAED: 0))
+        }
+        for event in events where event.decisive {
+            let anchor = event.resolvedAt ?? event.firedAt
+            guard let month = calendar.dateInterval(of: .month, for: anchor)?.start,
+                  let index = slices.firstIndex(where: { $0.month == month }) else { continue }
+            slices[index].saves += 1
+            slices[index].savedAED += event.estimatedFineAvoidedAED
+        }
+        return slices
+    }
+}
+
 /// Rollup for the stats line and (Task 3) the savings card — every number
 /// traces to individual events, no global multipliers.
 struct SavingsTotals: Equatable {

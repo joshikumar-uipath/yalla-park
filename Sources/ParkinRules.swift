@@ -56,6 +56,8 @@ enum ParkinRules {
     static let expiryWarningLead: TimeInterval = 10 * 60
     /// Recap card appears once this many confirmed sessions exist.
     static let recapMinimumSessions = 5
+    /// Repeated activity of one kind within this window logs once (one "visit").
+    static let activityDebounce: TimeInterval = 30 * 60
 
     // Cost estimates ONLY — never present as exact. Zone letter is a hint.
     static func estimatedRateAED(zone: String, kind: ZoneKind) -> Int {
