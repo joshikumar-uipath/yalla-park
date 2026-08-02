@@ -174,20 +174,52 @@ struct HomeView: View {
                     Text(location.areaName ?? "Locating…")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Theme.labelPrimary)
+                        .lineLimit(1)
                     Text("· just now")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(Theme.labelSecondary)
+                        .lineLimit(1)
                 }
                 .padding(.vertical, 9)
                 .padding(.horizontal, 13)
                 .background(.ultraThinMaterial, in: Capsule())
                 .shadow(color: .black.opacity(0.1), radius: 6, y: 2)
-                Spacer()
+                Spacer(minLength: 8)
+                savingsPill
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
             Spacer()
         }
+    }
+
+    /// Always-on incentive: the running "likely saved" total, one tap from the
+    /// dashboard. Lives top-right so the number is seen on every open.
+    private var savingsPill: some View {
+        let avoided = SavingsStats.totals(in: modelContext).avoidedAED
+        return Button {
+            showLedger = true
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "shield.checkered")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Theme.coral)
+                Text("~\(formatAED(avoided))")
+                    .font(.system(size: 14, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.labelPrimary)
+                    .contentTransition(.numericText())
+            }
+            .padding(.vertical, 9)
+            .padding(.horizontal, 12)
+            .background(.ultraThinMaterial, in: Capsule())
+            .shadow(color: .black.opacity(0.1), radius: 6, y: 2)
+            .frame(minHeight: 44) // touch target ≥ 44pt even though the pill is slim
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel("Savings: about \(formatAED(avoided)) dirhams in fines likely avoided")
+        .accessibilityHint("Shows your savings dashboard")
     }
 
     // MARK: - Bottom sheet

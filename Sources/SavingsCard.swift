@@ -74,8 +74,13 @@ struct SavingsCardView: View {
 
 struct SavingsLedgerView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \Session.startedAt, order: .reverse) private var sessions: [Session]
     @Query(sort: \InterventionEvent.firedAt, order: .reverse) private var events: [InterventionEvent]
+
+    /// Hero count-up: rolls from 0 to the real total on appear (numericText),
+    /// lands instantly when Reduce Motion is on.
+    @State private var displayedAED = Decimal(0)
 
     private var saves: [InterventionEvent] { events.filter(\.decisive) }
     private var totals: SavingsTotals { SavingsStats.totals(in: modelContext) }
@@ -100,6 +105,20 @@ struct SavingsLedgerView: View {
         )
         .navigationTitle("Savings")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            if reduceMotion {
+                displayedAED = totals.avoidedAED
+            } else {
+                withAnimation(.spring(response: 1.1, dampingFraction: 0.95)) {
+                    displayedAED = totals.avoidedAED
+                }
+            }
+        }
+        .onChange(of: totals.avoidedAED) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.9)) {
+                displayedAED = totals.avoidedAED
+            }
+        }
     }
 
     // MARK: Hero — the number that earns the screenshot
@@ -127,11 +146,12 @@ struct SavingsLedgerView: View {
                     .background(.white.opacity(0.22), in: Capsule())
             }
 
-            Text("~AED \(formatAED(totals.avoidedAED))")
+            Text("~AED \(formatAED(displayedAED))")
                 .font(.system(size: 56, weight: .heavy))
                 .kerning(-1.8)
                 .padding(.top, 20)
-                .contentTransition(.numericText())
+                .contentTransition(.numericText(value: NSDecimalNumber(decimal: displayedAED).doubleValue))
+                .accessibilityLabel("About \(formatAED(totals.avoidedAED)) dirhams in fines likely avoided")
 
             Text("in parking fines, likely avoided")
                 .font(.system(size: 15, weight: .semibold))
@@ -223,13 +243,25 @@ struct SavingsLedgerView: View {
                 .chartYAxis(.hidden)
                 .frame(height: 170)
                 .padding(.top, 12)
+                .accessibilityLabel("Bar chart of dirhams likely avoided per month, split by reminder type")
 
-                if let best = monthly.max(by: { $0.savedAED < $1.savedAED }), best.savedAED > 0 {
-                    Text("Best month: \(best.month.formatted(.dateTime.month(.wide))) · ~AED \(formatAED(best.savedAED))")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Theme.labelSecondary)
-                        .padding(.top, 10)
+                HStack(spacing: 12) {
+                    if let best = monthly.max(by: { $0.savedAED < $1.savedAED }), best.savedAED > 0 {
+                        Text("Best month: \(best.month.formatted(.dateTime.month(.wide))) · ~AED \(formatAED(best.savedAED))")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Theme.labelSecondary)
+                    }
+                    if monthly.count >= 2 {
+                        let current = monthly[monthly.count - 1].savedAED
+                        let previous = monthly[monthly.count - 2].savedAED
+                        if current > previous {
+                            Label("up vs last month", systemImage: "arrow.up.right")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(Theme.success)
+                        }
+                    }
                 }
+                .padding(.top, 10)
             }
         }
     }
