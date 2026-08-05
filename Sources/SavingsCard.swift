@@ -88,23 +88,27 @@ struct SavingsLedgerView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 0) {
                 hero
-                monthlyChartCard
-                breakdownCard
-                activityCard
-                receiptsCard
+                    .padding(.top, 4)
+
+                section("By month") { monthlyChartCard }
+                section("Where it came from") { sourcesCard }
+                section("The app had your back") { activityCard }
+                section("Receipts") { receiptsCard }
+
+                Text("Figures are estimates from the reminder ledger — likely, never certain.")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.labelTertiary)
+                    .padding(.top, 22)
+                    .padding(.horizontal, 4)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            .padding(.bottom, 28)
         }
-        .background(
-            LinearGradient(colors: [Theme.passCanvasTop, Theme.passCanvasBottom],
-                           startPoint: .top, endPoint: .bottom)
-                .ignoresSafeArea()
-        )
+        .background(Theme.passCanvasTop.ignoresSafeArea())
         .navigationTitle("Savings")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .onAppear {
             if reduceMotion {
                 displayedAED = totals.avoidedAED
@@ -121,184 +125,167 @@ struct SavingsLedgerView: View {
         }
     }
 
-    // MARK: Hero — the number that earns the screenshot
+    // MARK: Section chrome — labels live OUTSIDE the cards (Health-style),
+    // cards are flat insets: white, continuous 16pt radius, no shadows.
+
+    private func section<Content: View>(_ title: String,
+                                        @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title.uppercased())
+                .font(.footnote.weight(.semibold))
+                .kerning(0.5)
+                .foregroundStyle(Theme.labelSecondary)
+                .padding(.horizontal, 4)
+            content()
+        }
+        .padding(.top, 26)
+    }
+
+    private func card<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 0) { content() }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func iconTile(_ symbol: String, _ color: Color) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 28, height: 28)
+            .background(color, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+    }
+
+    private var hairline: some View {
+        Rectangle().fill(Theme.segmentedTrack).frame(height: 0.7)
+            .padding(.leading, 40)
+    }
+
+    // MARK: Hero — one Wallet-style moment; everything after it stays quiet.
 
     private var hero: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 HStack(spacing: 7) {
-                    Image(systemName: "shield.checkered")
-                        .font(.system(size: 12, weight: .bold))
-                    Text("LIKELY SAVED")
-                        .font(.system(size: 11, weight: .heavy))
-                        .kerning(1.4)
+                    Text("P")
+                        .font(.system(size: 12, weight: .heavy))
+                        .frame(width: 22, height: 22)
+                        .background(.white.opacity(0.25),
+                                    in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    Text("Yalla Park")
+                        .font(.subheadline.weight(.semibold))
                 }
-                .padding(.vertical, 6)
-                .padding(.horizontal, 11)
-                .background(.white.opacity(0.22), in: Capsule())
-
                 Spacer()
-
-                Text("\(totals.likelySaves) save\(totals.likelySaves == 1 ? "" : "s")")
-                    .font(.system(size: 12, weight: .bold))
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 11)
-                    .background(.white.opacity(0.22), in: Capsule())
+                Text("\(totals.likelySaves) likely save\(totals.likelySaves == 1 ? "" : "s")")
+                    .font(.footnote.weight(.semibold))
+                    .opacity(0.9)
             }
 
             Text("~AED \(formatAED(displayedAED))")
-                .font(.system(size: 56, weight: .heavy))
-                .kerning(-1.8)
-                .padding(.top, 20)
+                .font(.system(size: 54, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .kerning(-0.5)
+                .padding(.top, 26)
                 .contentTransition(.numericText(value: NSDecimalNumber(decimal: displayedAED).doubleValue))
                 .accessibilityLabel("About \(formatAED(totals.avoidedAED)) dirhams in fines likely avoided")
 
-            Text("in parking fines, likely avoided")
-                .font(.system(size: 15, weight: .semibold))
-                .opacity(0.92)
+            Text("in fines, likely avoided")
+                .font(.subheadline.weight(.medium))
+                .opacity(0.9)
                 .padding(.top, 2)
 
             if spend > 0 && totals.avoidedAED > 0 {
+                Rectangle().fill(.white.opacity(0.25)).frame(height: 0.7)
+                    .padding(.vertical, 14)
                 let multiple = NSDecimalNumber(decimal: totals.avoidedAED).doubleValue
                     / NSDecimalNumber(decimal: spend).doubleValue
-                HStack(spacing: 8) {
-                    Image(systemName: "arrow.up.right.circle.fill")
-                        .font(.system(size: 13, weight: .bold))
-                    Text("Paid ~AED \(formatAED(spend)) for parking — dodged ≈\(String(format: "%.0f", multiple))× that in fines")
-                        .font(.system(size: 12.5, weight: .semibold))
-                }
-                .opacity(0.95)
-                .padding(.vertical, 9)
-                .padding(.horizontal, 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.white.opacity(0.16), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-                .padding(.top, 18)
+                Text("Parking cost ~AED \(formatAED(spend)) · avoided ≈\(String(format: "%.0f", multiple))× that")
+                    .font(.footnote.weight(.medium))
+                    .opacity(0.9)
             }
         }
         .foregroundStyle(.white)
-        .padding(22)
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            ZStack {
-                LinearGradient(
-                    stops: [
-                        .init(color: Color(hex: 0xFB4E2A), location: 0),
-                        .init(color: Color(hex: 0xFF6E3C), location: 0.55),
-                        .init(color: Color(hex: 0xFF5168), location: 1),
-                    ],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                )
-                RadialGradient(colors: [Color(hex: 0xFF9A54).opacity(0.9), .clear],
-                               center: UnitPoint(x: 0.88, y: 0.02),
-                               startRadius: 0, endRadius: 240)
-                Image(systemName: "shield.checkered")
-                    .font(.system(size: 170, weight: .black))
-                    .foregroundStyle(.white.opacity(0.05))
-                    .rotationEffect(.degrees(-12))
-                    .offset(x: 110, y: 55)
-            }
+            LinearGradient(
+                stops: [
+                    .init(color: Color(hex: 0xF64C22), location: 0),
+                    .init(color: Color(hex: 0xFB5E3A), location: 0.6),
+                    .init(color: Color(hex: 0xF74E5A), location: 1),
+                ],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
         )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.sheetRadius, style: .continuous))
-        .shadow(color: Theme.coral.opacity(0.35), radius: 22, y: 12)
     }
 
-    // MARK: Monthly chart
+    // MARK: Chart
 
-    @ViewBuilder
     private var monthlyChartCard: some View {
         let slices = SavingsStats.monthlyKindSaves(events: events)
         let monthly = SavingsStats.monthlySaves(events: events)
-        if slices.contains(where: { $0.savedAED > 0 }) {
-            card {
-                cardHeader("By month", icon: "chart.bar.fill")
-
-                HStack(spacing: 12) {
-                    ForEach(InterventionKind.allCases, id: \.self) { kind in
-                        HStack(spacing: 5) {
-                            Circle().fill(kindColor(kind)).frame(width: 7, height: 7)
-                            Text(kind.displayLabel)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(Theme.labelSecondary)
-                        }
-                    }
-                }
-                .padding(.top, 8)
-
-                Chart(Array(slices.enumerated()), id: \.offset) { _, slice in
-                    BarMark(
-                        x: .value("Month", slice.month, unit: .month),
-                        y: .value("AED", NSDecimalNumber(decimal: slice.savedAED).doubleValue),
-                        width: .ratio(0.55)
-                    )
-                    .foregroundStyle(kindColor(slice.kind))
-                    .cornerRadius(4)
-                }
-                .chartXAxis {
-                    AxisMarks(values: .stride(by: .month)) { _ in
-                        AxisValueLabel(format: .dateTime.month(.narrow))
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Theme.labelSecondary)
-                    }
-                }
-                .chartYAxis(.hidden)
-                .frame(height: 170)
-                .padding(.top, 12)
-                .accessibilityLabel("Bar chart of dirhams likely avoided per month, split by reminder type")
-
-                HStack(spacing: 12) {
-                    if let best = monthly.max(by: { $0.savedAED < $1.savedAED }), best.savedAED > 0 {
-                        Text("Best month: \(best.month.formatted(.dateTime.month(.wide))) · ~AED \(formatAED(best.savedAED))")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Theme.labelSecondary)
-                    }
-                    if monthly.count >= 2 {
-                        let current = monthly[monthly.count - 1].savedAED
-                        let previous = monthly[monthly.count - 2].savedAED
-                        if current > previous {
-                            Label("up vs last month", systemImage: "arrow.up.right")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(Theme.success)
-                        }
-                    }
-                }
-                .padding(.top, 10)
+        return card {
+            Chart(Array(slices.enumerated()), id: \.offset) { _, slice in
+                BarMark(
+                    x: .value("Month", slice.month, unit: .month),
+                    y: .value("AED", NSDecimalNumber(decimal: slice.savedAED).doubleValue),
+                    width: .ratio(0.45)
+                )
+                .foregroundStyle(kindColor(slice.kind))
+                .cornerRadius(3)
             }
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .month)) { _ in
+                    AxisValueLabel(format: .dateTime.month(.narrow))
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(Theme.labelTertiary)
+                }
+            }
+            .chartYAxis(.hidden)
+            .frame(height: 150)
+            .accessibilityLabel("Bar chart of dirhams likely avoided per month, split by reminder type")
+
+            HStack(spacing: 14) {
+                ForEach(InterventionKind.allCases, id: \.self) { kind in
+                    HStack(spacing: 5) {
+                        Circle().fill(kindColor(kind)).frame(width: 6, height: 6)
+                        Text(kind.displayLabel)
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(Theme.labelSecondary)
+                    }
+                }
+                Spacer()
+                if monthly.count >= 2,
+                   monthly[monthly.count - 1].savedAED > monthly[monthly.count - 2].savedAED {
+                    Label("Up", systemImage: "arrow.up.right")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(Theme.success)
+                }
+            }
+            .padding(.top, 12)
         }
     }
 
-    // MARK: Where the saves came from
+    // MARK: Sources
 
-    @ViewBuilder
-    private var breakdownCard: some View {
+    private var sourcesCard: some View {
         let breakdown = SavingsStats.savesByKind(events: events)
-        if !breakdown.isEmpty || totals.finesReported > 0 {
-            card {
-                cardHeader("Where the saves came from", icon: "square.stack.3d.up.fill")
-
-                let maxAED = breakdown.map(\.savedAED).max() ?? 1
-                VStack(spacing: 16) {
-                    ForEach(breakdown, id: \.kind) { entry in
-                        VStack(alignment: .leading, spacing: 7) {
-                            HStack(spacing: 11) {
-                                ZStack {
-                                    Circle()
-                                        .fill(kindColor(entry.kind).opacity(0.14))
-                                        .frame(width: 36, height: 36)
-                                    Image(systemName: entry.kind.icon)
-                                        .font(.system(size: 15, weight: .semibold))
-                                        .foregroundStyle(kindColor(entry.kind))
-                                }
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(entry.kind.displayLabel)
-                                        .font(.system(size: 14.5, weight: .bold))
-                                        .foregroundStyle(Theme.labelPrimary)
-                                    Text("\(entry.saves) save\(entry.saves == 1 ? "" : "s")")
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundStyle(Theme.labelSecondary)
-                                }
+        let maxAED = breakdown.map(\.savedAED).max() ?? 1
+        return card {
+            VStack(spacing: 0) {
+                ForEach(Array(breakdown.enumerated()), id: \.element.kind) { index, entry in
+                    if index > 0 { hairline.padding(.vertical, 11) }
+                    HStack(spacing: 12) {
+                        iconTile(entry.kind.icon, kindColor(entry.kind))
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack {
+                                Text(entry.kind.displayLabel)
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(Theme.labelPrimary)
                                 Spacer()
                                 Text("~AED \(formatAED(entry.savedAED))")
-                                    .font(.system(size: 15, weight: .heavy))
+                                    .font(.subheadline.weight(.semibold))
                                     .monospacedDigit()
                                     .foregroundStyle(Theme.labelPrimary)
                             }
@@ -309,177 +296,104 @@ struct SavingsLedgerView: View {
                                     : 0
                                 ZStack(alignment: .leading) {
                                     Capsule().fill(Theme.segmentedTrack)
-                                    Capsule().fill(kindColor(entry.kind).gradient)
-                                        .frame(width: max(8, geo.size.width * ratio))
+                                    Capsule().fill(kindColor(entry.kind))
+                                        .frame(width: max(6, geo.size.width * ratio))
                                 }
                             }
-                            .frame(height: 6)
-                        }
-                    }
-
-                    if totals.finesReported > 0 {
-                        HStack(spacing: 11) {
-                            ZStack {
-                                Circle().fill(Color.orange.opacity(0.14))
-                                    .frame(width: 36, height: 36)
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(.orange)
-                            }
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("Fines that got through")
-                                    .font(.system(size: 14.5, weight: .bold))
-                                    .foregroundStyle(Theme.labelPrimary)
-                                Text("we count our misses too")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(Theme.labelSecondary)
-                            }
-                            Spacer()
-                            Text("AED \(formatAED(totals.finesReportedAED))")
-                                .font(.system(size: 15, weight: .heavy))
-                                .monospacedDigit()
-                                .foregroundStyle(.orange)
+                            .frame(height: 4)
                         }
                     }
                 }
-                .padding(.top, 14)
+
+                if totals.finesReported > 0 {
+                    hairline.padding(.vertical, 11)
+                    HStack(spacing: 12) {
+                        iconTile("exclamationmark.triangle.fill", .orange)
+                        Text("Fines that got through")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Theme.labelPrimary)
+                        Spacer()
+                        Text("AED \(formatAED(totals.finesReportedAED))")
+                            .font(.subheadline.weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(.orange)
+                    }
+                }
             }
         }
     }
 
     // MARK: Activity
 
-    @ViewBuilder
     private var activityCard: some View {
         let counts = ActivityLog.counts(in: modelContext)
-        if !counts.isEmpty {
-            card {
-                cardHeader("The app had your back", icon: "hand.raised.fill")
-
-                let items: [(String, String, ActivityKind)] = [
-                    ("arrow.up.forward.app.fill", "Parkin hand-offs", .parkinOpened),
-                    ("message.fill", "SMS payments", .smsPayStarted),
-                    ("hand.raised.fill", "False triggers caught", .notParkingDismissed),
-                    ("house.fill", "Quiet at Home/Office", .quietArrival),
-                    ("checkmark.circle.fill", "Free-spot arrivals", .freeArrival),
-                ]
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                    ForEach(items.filter { (counts[$0.2] ?? 0) > 0 }, id: \.1) { icon, title, kind in
-                        VStack(alignment: .leading, spacing: 5) {
-                            HStack(spacing: 6) {
-                                Image(systemName: icon)
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(Theme.coral)
-                                Spacer()
-                            }
-                            Text("\(counts[kind] ?? 0)×")
-                                .font(.system(size: 24, weight: .heavy))
-                                .monospacedDigit()
-                                .foregroundStyle(Theme.labelPrimary)
-                            Text(title)
-                                .font(.system(size: 11.5, weight: .semibold))
-                                .foregroundStyle(Theme.labelSecondary)
-                        }
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Theme.passCanvasTop,
-                                    in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+        let items: [(String, String, ActivityKind)] = [
+            ("arrow.up.forward.app.fill", "Parkin hand-offs", .parkinOpened),
+            ("message.fill", "SMS payments", .smsPayStarted),
+            ("hand.raised.fill", "False triggers caught", .notParkingDismissed),
+            ("house.fill", "Quiet at Home and Office", .quietArrival),
+            ("checkmark.circle.fill", "Free-spot arrivals", .freeArrival),
+        ].filter { (counts[$0.2] ?? 0) > 0 }
+        return card {
+            VStack(spacing: 0) {
+                ForEach(Array(items.enumerated()), id: \.element.1) { index, item in
+                    if index > 0 { hairline.padding(.vertical, 11) }
+                    HStack(spacing: 12) {
+                        iconTile(item.0, Theme.coral)
+                        Text(item.1)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Theme.labelPrimary)
+                        Spacer()
+                        Text("\(counts[item.2] ?? 0)")
+                            .font(.subheadline.weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(Theme.labelSecondary)
                     }
                 }
-                .padding(.top, 12)
-
-                Text("Activity is counted, never priced — the AED above comes only from reminder-caused saves.")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Theme.labelTertiary)
-                    .padding(.top, 10)
             }
         }
     }
 
-    // MARK: Receipts timeline
+    // MARK: Receipts — Wallet-transaction rows
 
-    @ViewBuilder
     private var receiptsCard: some View {
         card {
-            cardHeader("Receipts", icon: "list.bullet.rectangle.fill")
-
             if saves.isEmpty {
-                Text("No saves yet — we'll start counting the first time a reminder catches a fine for you.")
-                    .font(.system(size: 14))
+                Text("No saves yet — counting starts the first time a reminder catches a fine for you.")
+                    .font(.subheadline)
                     .foregroundStyle(Theme.labelSecondary)
-                    .padding(.top, 10)
             } else {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(saves.prefix(10).enumerated()), id: \.element.id) { index, event in
-                        HStack(alignment: .top, spacing: 12) {
-                            VStack(spacing: 0) {
-                                Circle()
-                                    .fill(kindColor(event.kind))
-                                    .frame(width: 9, height: 9)
-                                    .padding(.top, 5)
-                                if index < min(saves.count, 10) - 1 {
-                                    Rectangle()
-                                        .fill(Theme.segmentedTrack)
-                                        .frame(width: 2)
-                                        .frame(maxHeight: .infinity)
-                                }
-                            }
+                VStack(spacing: 0) {
+                    ForEach(Array(saves.prefix(8).enumerated()), id: \.element.id) { index, event in
+                        if index > 0 { hairline.padding(.vertical, 11) }
+                        HStack(spacing: 12) {
+                            iconTile(event.kind.icon, kindColor(event.kind))
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(event.firedAt.formatted(.dateTime.day().month(.abbreviated).hour().minute()).uppercased())
-                                    .font(.system(size: 10.5, weight: .heavy))
-                                    .kerning(0.6)
-                                    .foregroundStyle(Theme.labelTertiary)
-                                Text(receiptText(for: event))
-                                    .font(.system(size: 13.5, weight: .medium))
+                                Text(receiptTitle(for: event))
+                                    .font(.subheadline.weight(.medium))
                                     .foregroundStyle(Theme.labelPrimary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                Text("~AED \(formatAED(event.estimatedFineAvoidedAED)) likely avoided")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundStyle(Theme.success)
+                                Text(event.firedAt.formatted(.dateTime.day().month(.abbreviated).hour().minute()))
+                                    .font(.caption)
+                                    .foregroundStyle(Theme.labelSecondary)
                             }
-                            .padding(.bottom, 16)
-                            Spacer(minLength: 0)
+                            Spacer()
+                            Text("+\(formatAED(event.estimatedFineAvoidedAED))")
+                                .font(.subheadline.weight(.semibold))
+                                .monospacedDigit()
+                                .foregroundStyle(Theme.success)
                         }
-                        .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(.top, 12)
             }
         }
     }
 
-    // MARK: Card chrome
-
-    private func card<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 0) { content() }
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.white, in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
-            .shadow(color: .black.opacity(0.05), radius: 10, y: 4)
-    }
-
-    private func cardHeader(_ title: String, icon: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(Theme.coral)
-            Text(title)
-                .font(.system(size: 16, weight: .bold))
-                .kerning(-0.3)
-                .foregroundStyle(Theme.labelPrimary)
-        }
-    }
-
-    private func receiptText(for event: InterventionEvent) -> String {
-        let zone = event.zoneCode.isEmpty ? "a paid zone" : "Zone \(event.zoneCode)"
-        let acted = event.resolvedAt?.formatted(date: .omitted, time: .shortened) ?? "—"
+    private func receiptTitle(for event: InterventionEvent) -> String {
+        let zone = event.zoneCode.isEmpty ? "paid zone" : "Zone \(event.zoneCode)"
         switch event.kind {
-        case .morningFreeToPaid:
-            return "Reminded you before \(zone) started charging · you paid at \(acted)"
-        case .unpaidNag:
-            return "Nagged you after parking unpaid in \(zone) · you paid at \(acted)"
-        case .expiryWarning:
-            return "Warned you before \(zone) expired · you extended at \(acted)"
+        case .morningFreeToPaid: return "Paid \(zone) before charging began"
+        case .unpaidNag: return "Paid \(zone) after the nag"
+        case .expiryWarning: return "Extended \(zone) before it lapsed"
         }
     }
 }
