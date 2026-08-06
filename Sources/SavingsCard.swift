@@ -77,7 +77,6 @@ struct SavingsCardView: View {
 struct SavingsTheme {
     let page: Color, pageText: Color, secCap: Color
     let ticketA: Color, ticketB: Color, ticketC: Color
-    let boardTile: Color, boardText: Color
     let asphaltA: Color, asphaltB: Color, paint: Color
     let carTones: [(Color, Color, Color)]
     let glassA: Color, glassB: Color
@@ -88,7 +87,6 @@ struct SavingsTheme {
     static let light = SavingsTheme(
         page: Color(hex: 0xF0EBE1), pageText: Color(hex: 0x23180F), secCap: Color(hex: 0x9A8D7A),
         ticketA: Color(hex: 0x108A5F), ticketB: Color(hex: 0x19A373), ticketC: Color(hex: 0x0A6B49),
-        boardTile: Color(hex: 0x0A3B2A), boardText: Color(hex: 0xF2FBF3),
         asphaltA: Color(hex: 0x3F4045), asphaltB: Color(hex: 0x37383C), paint: Color(hex: 0xE9E7DF),
         carTones: [
             (Color(hex: 0xF8A145), Color(hex: 0xEF8420), Color(hex: 0xD06A12)),
@@ -116,6 +114,9 @@ struct SavingsLedgerView: View {
     @Query(sort: \InterventionEvent.firedAt, order: .reverse) private var events: [InterventionEvent]
 
     @State private var carsParked = false
+    /// Hero count-up: rolls from 0 to the real total on appear; instant
+    /// under Reduce Motion.
+    @State private var displayedAED = Decimal(0)
 
     private let theme = SavingsTheme.light
 
@@ -127,7 +128,7 @@ struct SavingsLedgerView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 TicketHero(theme: theme, totals: totals, spend: spend,
-                           reduceMotion: reduceMotion)
+                           displayedAED: displayedAED)
                     .padding(.top, 6)
 
                 sectionCap("Six months · one bay per save")
@@ -162,7 +163,21 @@ struct SavingsLedgerView: View {
                     .foregroundStyle(theme.pageText)
             }
         }
-        .onAppear { carsParked = true }
+        .onAppear {
+            carsParked = true
+            if reduceMotion {
+                displayedAED = totals.avoidedAED
+            } else {
+                withAnimation(.spring(response: 1.1, dampingFraction: 0.95)) {
+                    displayedAED = totals.avoidedAED
+                }
+            }
+        }
+        .onChange(of: totals.avoidedAED) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.9)) {
+                displayedAED = totals.avoidedAED
+            }
+        }
     }
 
     /// Matches the app's section labels: 13pt semibold, sentence case.
@@ -338,7 +353,7 @@ private struct TicketHero: View {
     let theme: SavingsTheme
     let totals: SavingsTotals
     let spend: Decimal
-    let reduceMotion: Bool
+    let displayedAED: Decimal
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -351,9 +366,12 @@ private struct TicketHero: View {
             .kerning(0.5)
             .opacity(0.95)
 
-            FlapBoard(text: "~AED \(formatAED(totals.avoidedAED))",
-                      theme: theme, reduceMotion: reduceMotion)
-                .padding(.top, 14)
+            Text("~AED \(formatAED(displayedAED))")
+                .font(.system(size: 52, weight: .heavy))
+                .kerning(-1)
+                .monospacedDigit()
+                .padding(.top, 11)
+                .contentTransition(.numericText(value: NSDecimalNumber(decimal: displayedAED).doubleValue))
                 .accessibilityLabel("About \(formatAED(totals.avoidedAED)) dirhams in fines likely avoided")
 
             Text("in fines, likely avoided · \(totals.likelySaves) save\(totals.likelySaves == 1 ? "" : "s")")
@@ -400,74 +418,6 @@ private struct TicketHero: View {
         let multiple = NSDecimalNumber(decimal: totals.avoidedAED).doubleValue
             / NSDecimalNumber(decimal: spend).doubleValue
         return "RETURN ≈\(String(format: "%.0f", multiple))×"
-    }
-}
-
-// MARK: - Split-flap airport board
-
-/// The savings total as a Solari departure board: every character is a tile
-/// that clatters through the alphabet before settling. Spaces render as gaps.
-private struct FlapBoard: View {
-    let text: String
-    let theme: SavingsTheme
-    let reduceMotion: Bool
-
-    var body: some View {
-        HStack(spacing: 3) {
-            ForEach(Array(text.enumerated()), id: \.offset) { index, character in
-                if character == " " {
-                    Spacer().frame(width: 7)
-                } else {
-                    FlapCell(target: character, flips: reduceMotion ? 0 : 5 + index * 2,
-                             theme: theme,
-                             narrow: character == "," || character == "~" || character == ".")
-                }
-            }
-        }
-        .monospacedDigit()
-    }
-}
-
-private struct FlapCell: View {
-    let target: Character
-    let flips: Int
-    let theme: SavingsTheme
-    let narrow: Bool
-
-    @State private var shown: String = " "
-    @State private var settled = false
-
-    private static let reel = Array("0123456789AED~,")
-
-    var body: some View {
-        Text(shown)
-            .font(.system(size: 27, weight: .bold))
-            .monospacedDigit()
-            .foregroundStyle(theme.boardText)
-            .frame(width: narrow ? 16 : 27, height: 40)
-            .background(theme.boardTile, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .overlay(
-                // the split line every flap board has
-                Rectangle().fill(.black.opacity(0.3)).frame(height: 1.2)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(.white.opacity(0.09), lineWidth: 0.8)
-            )
-            .scaleEffect(y: settled ? 1 : 0.96)
-            .task {
-                guard flips > 0 else { shown = String(target); settled = true; return }
-                // start from a deterministic offset in the reel, spin to target
-                let reel = Self.reel
-                let start = abs(target.hashValue &+ flips) % reel.count
-                for step in 0..<flips {
-                    shown = String(reel[(start + step) % reel.count])
-                    try? await Task.sleep(nanoseconds: 55_000_000)
-                    if Task.isCancelled { return }
-                }
-                shown = String(target)
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) { settled = true }
-            }
     }
 }
 
