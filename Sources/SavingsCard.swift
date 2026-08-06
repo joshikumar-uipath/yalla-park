@@ -645,13 +645,15 @@ private struct BayCell: View {
     var body: some View {
         ZStack {
             if selected {
-                // The lot lamp: a constant warm pool of light on this bay,
-                // spilling softly past its lines.
-                RadialGradient(colors: [Color(hex: 0xFFDD8F).opacity(0.5),
-                                        Color(hex: 0xFFD98A).opacity(0.16),
-                                        .clear],
-                               center: .center, startRadius: 6, endRadius: 72)
-                    .scaleEffect(1.7)
+                // The lot lamp: a soft, rounded pool of warm light kept
+                // inside the bay's own lines.
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(RadialGradient(colors: [Color(hex: 0xFFDD8F).opacity(0.40),
+                                                  Color(hex: 0xFFD98A).opacity(0.12),
+                                                  .clear],
+                                         center: .center, startRadius: 4, endRadius: 52))
+                    .padding(.horizontal, 3)
+                    .padding(.vertical, 4)
                     .allowsHitTesting(false)
             }
             HStack {
