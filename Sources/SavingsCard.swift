@@ -167,8 +167,9 @@ struct SavingsLedgerView: View {
     @Query(sort: \InterventionEvent.firedAt, order: .reverse) private var events: [InterventionEvent]
 
     @State private var carsParked = false
-    /// Selected month bay (0 = January); receipts below follow the selection.
-    @State private var selectedMonth = 7
+    /// Selected month bay (0 = January); nil = collapsed. Tapping the
+    /// selected month again puts the light out and folds the receipts away.
+    @State private var selectedMonth: Int? = 7
     /// Hero count-up: rolls from 0 to the real total on appear; instant
     /// under Reduce Motion.
     @State private var displayedAED = Decimal(0)
@@ -190,13 +191,15 @@ struct SavingsLedgerView: View {
                 LotView(theme: theme, bays: DemoYear.bays, selected: selectedMonth,
                         parked: carsParked, reduceMotion: reduceMotion) { index in
                     withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8)) {
-                        selectedMonth = index
+                        selectedMonth = (selectedMonth == index) ? nil : index
                     }
                     UISelectionFeedbackGenerator().selectionChanged()
                 }
 
-                sectionCap("Torn off — \(DemoYear.monthNames[selectedMonth]) receipts")
-                receiptsCard(forMonth: selectedMonth)
+                if let month = selectedMonth {
+                    sectionCap("Torn off — \(DemoYear.monthNames[month]) receipts")
+                    receiptsCard(forMonth: month)
+                }
 
                 sectionCap("Where it came from")
                 sourcesCard()
@@ -270,24 +273,26 @@ struct SavingsLedgerView: View {
         .transition(.opacity)
     }
 
+    /// "Where it came from" as road paint: each reminder layer is a painted
+    /// line on asphalt — stencil label, share bar, amount. The fine is a
+    /// yellow-black kerb strip. No icons, no list rows.
     private func sourcesCard() -> some View {
         let breakdown = SavingsStats.savesByKind(events: events)
         let maxAED = breakdown.map(\.savedAED).max() ?? 1
-        return StubCard(theme: theme) {
-            ForEach(Array(breakdown.enumerated()), id: \.element.kind) { index, entry in
-                if index > 0 { DashedRule(color: theme.stubDash) }
-                HStack(spacing: 12) {
-                    iconTile(entry.kind.icon, kindColor(entry.kind))
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text(entry.kind.displayLabel)
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(theme.stubText)
+        return AsphaltCard(theme: theme) {
+            VStack(alignment: .leading, spacing: 16) {
+                ForEach(breakdown, id: \.kind) { entry in
+                    VStack(alignment: .leading, spacing: 7) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text("\(entry.kind.displayLabel.uppercased()) ×\(entry.saves)")
+                                .font(.system(size: 11, weight: .bold))
+                                .kerning(1.2)
+                                .foregroundStyle(theme.paint.opacity(0.85))
                             Spacer()
                             Text("~AED \(formatAED(entry.savedAED))")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.system(size: 14, weight: .bold))
                                 .monospacedDigit()
-                                .foregroundStyle(theme.stubText)
+                                .foregroundStyle(theme.paint)
                         }
                         GeometryReader { geo in
                             let ratio = maxAED > 0
@@ -295,68 +300,53 @@ struct SavingsLedgerView: View {
                                     / NSDecimalNumber(decimal: maxAED).doubleValue
                                 : 0
                             ZStack(alignment: .leading) {
-                                Capsule().fill(theme.stubDash.opacity(0.6))
+                                Capsule().fill(theme.paint.opacity(0.14))
                                 Capsule().fill(kindColor(entry.kind))
-                                    .frame(width: max(6, geo.size.width * ratio))
+                                    .frame(width: max(8, geo.size.width * ratio))
                             }
                         }
-                        .frame(height: 4.5)
+                        .frame(height: 5)
                     }
                 }
-                .padding(.vertical, 11)
-            }
-            if totals.finesReported > 0 {
-                DashedRule(color: theme.stubDash)
-                HStack(spacing: 12) {
-                    iconTile("exclamationmark.triangle.fill", Color(hex: 0xE8912B))
-                    Text("Fines that got through")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(theme.stubText)
-                    Spacer()
-                    Text("AED \(formatAED(totals.finesReportedAED))")
-                        .font(.system(size: 14, weight: .semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(Color(hex: 0xE8912B))
+                if totals.finesReported > 0 {
+                    KerbStrip(text: "\(totals.finesReported) FINE GOT THROUGH · −\(formatAED(totals.finesReportedAED))")
+                        .padding(.top, 2)
                 }
-                .padding(.vertical, 11)
             }
         }
     }
 
+    /// "The app had your back" as a signage tally: stencil labels with dotted
+    /// leader lines running to painted counts.
     private func activityCard() -> some View {
         let counts = ActivityLog.counts(in: modelContext)
-        let items: [(String, String, ActivityKind)] = [
-            ("arrow.up.forward.app.fill", "Parkin hand-offs", .parkinOpened),
-            ("message.fill", "SMS payments", .smsPayStarted),
-            ("hand.raised.fill", "False triggers caught", .notParkingDismissed),
-            ("house.fill", "Quiet at Home and Office", .quietArrival),
-            ("checkmark.circle.fill", "Free-spot arrivals", .freeArrival),
-        ].filter { (counts[$0.2] ?? 0) > 0 }
-        return StubCard(theme: theme) {
-            ForEach(Array(items.enumerated()), id: \.element.1) { index, item in
-                if index > 0 { DashedRule(color: theme.stubDash) }
-                HStack(spacing: 12) {
-                    iconTile(item.0, Color(hex: 0xEE5A2B))
-                    Text(item.1)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(theme.stubText)
-                    Spacer()
-                    Text("\(counts[item.2] ?? 0)")
-                        .font(.system(size: 15, weight: .semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(theme.stubText.opacity(0.55))
+        let items: [(String, ActivityKind)] = [
+            ("Parkin hand-offs", .parkinOpened),
+            ("SMS payments", .smsPayStarted),
+            ("False triggers caught", .notParkingDismissed),
+            ("Quiet at Home and Office", .quietArrival),
+            ("Free-spot arrivals", .freeArrival),
+        ].filter { (counts[$0.1] ?? 0) > 0 }
+        return AsphaltCard(theme: theme) {
+            VStack(spacing: 13) {
+                ForEach(items, id: \.0) { item in
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(item.0.uppercased())
+                            .font(.system(size: 11, weight: .bold))
+                            .kerning(1.2)
+                            .foregroundStyle(theme.paint.opacity(0.85))
+                            .layoutPriority(1)
+                        DashedRule(color: theme.paint.opacity(0.25), thickness: 1.5)
+                            .offset(y: -2)
+                        Text("\(counts[item.1] ?? 0)")
+                            .font(.system(size: 16, weight: .heavy))
+                            .monospacedDigit()
+                            .foregroundStyle(theme.paint)
+                            .layoutPriority(1)
+                    }
                 }
-                .padding(.vertical, 11)
             }
         }
-    }
-
-    private func iconTile(_ symbol: String, _ color: Color) -> some View {
-        Image(systemName: symbol)
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(.white)
-            .frame(width: 30, height: 30)
-            .background(color, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private func receiptTitle(for event: InterventionEvent) -> String {
@@ -366,6 +356,73 @@ struct SavingsLedgerView: View {
         case .unpaidNag: return "Paid \(zone) after the nag"
         case .expiryWarning: return "Extended \(zone) before it lapsed"
         }
+    }
+}
+
+// MARK: - Asphalt panels (sections drawn in the lot's own material)
+
+private struct AsphaltCard<Content: View>: View {
+    let theme: SavingsTheme
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        content
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                ZStack {
+                    LinearGradient(colors: [theme.asphaltA, theme.asphaltB],
+                                   startPoint: .top, endPoint: .bottom)
+                    Ellipse().fill(.black.opacity(0.14))
+                        .frame(width: 80, height: 40).offset(x: 80, y: -30)
+                    Ellipse().fill(.black.opacity(0.10))
+                        .frame(width: 60, height: 30).offset(x: -90, y: 40)
+                }
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+}
+
+/// Yellow-black hazard kerb with a stencil label — the fine's road furniture.
+private struct KerbStrip: View {
+    let text: String
+
+    var body: some View {
+        HStack {
+            Spacer()
+            Text(text)
+                .font(.system(size: 11, weight: .heavy))
+                .kerning(1)
+                .monospacedDigit()
+                .foregroundStyle(Color(hex: 0x17140E))
+                .padding(.vertical, 4)
+                .padding(.horizontal, 10)
+                .background(Color(hex: 0xF2B23A).opacity(0.95),
+                            in: RoundedRectangle(cornerRadius: 5))
+            Spacer()
+        }
+        .padding(.vertical, 7)
+        .background(HazardStripes().fill(Color(hex: 0xF2B23A).opacity(0.85))
+            .background(Color(hex: 0x17140E)))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+/// Diagonal hazard stripes, deterministic.
+private struct HazardStripes: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let stripeWidth: CGFloat = 14
+        var x = -rect.height
+        while x < rect.width + rect.height {
+            path.move(to: CGPoint(x: x, y: rect.maxY))
+            path.addLine(to: CGPoint(x: x + rect.height, y: 0))
+            path.addLine(to: CGPoint(x: x + rect.height + stripeWidth, y: 0))
+            path.addLine(to: CGPoint(x: x + stripeWidth, y: rect.maxY))
+            path.closeSubpath()
+            x += stripeWidth * 2
+        }
+        return path
     }
 }
 
@@ -484,13 +541,10 @@ struct DashedRule: View {
 private struct LotView: View {
     let theme: SavingsTheme
     let bays: [MonthBay]
-    let selected: Int
+    let selected: Int?
     let parked: Bool
     let reduceMotion: Bool
     let onSelect: (Int) -> Void
-
-    /// Floodlight: a brief light wash over the whole lot when a month is picked.
-    @State private var floodlight = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -512,22 +566,7 @@ private struct LotView: View {
                     .offset(x: 120, y: 78)
             }
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(RadialGradient(colors: [.white.opacity(0.55), .white.opacity(0.12), .clear],
-                                     center: .center, startRadius: 20, endRadius: 280))
-                .opacity(floodlight ? 1 : 0)
-                .allowsHitTesting(false)
-        )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .onChange(of: selected) {
-            guard !reduceMotion else { return }
-            withAnimation(.easeIn(duration: 0.12)) { floodlight = true }
-            Task {
-                try? await Task.sleep(nanoseconds: 160_000_000)
-                withAnimation(.easeOut(duration: 0.5)) { floodlight = false }
-            }
-        }
     }
 
     private func bayRow(_ range: Range<Int>, facingDown: Bool) -> some View {
@@ -606,10 +645,14 @@ private struct BayCell: View {
     var body: some View {
         ZStack {
             if selected {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(theme.paint.opacity(0.10))
-                    .padding(.horizontal, 2)
-                    .padding(.vertical, 1)
+                // The lot lamp: a constant warm pool of light on this bay,
+                // spilling softly past its lines.
+                RadialGradient(colors: [Color(hex: 0xFFDD8F).opacity(0.5),
+                                        Color(hex: 0xFFD98A).opacity(0.16),
+                                        .clear],
+                               center: .center, startRadius: 6, endRadius: 72)
+                    .scaleEffect(1.7)
+                    .allowsHitTesting(false)
             }
             HStack {
                 bayLine
@@ -641,7 +684,7 @@ private struct BayCell: View {
         Text(bay.label)
             .font(.system(size: 8, weight: selected ? .heavy : .bold))
             .kerning(1)
-            .foregroundStyle(selected ? theme.paint : theme.paint.opacity(0.65))
+            .foregroundStyle(selected ? Color(hex: 0xFFDD8F) : theme.paint.opacity(0.65))
     }
 
     @ViewBuilder
