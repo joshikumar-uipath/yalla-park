@@ -70,53 +70,36 @@ struct SavingsCardView: View {
     }
 }
 
-// MARK: - The dashboard: "Savings Pass over The Lot" (design AE pair)
+// MARK: - The dashboard: "Savings Pass over The Lot" — banknote edition
 
-/// Complete palette for one appearance of the savings screen.
-/// A = warm cream daylight; E = midnight. Chosen via system dark mode,
-/// overridable with the sun/moon toggle (great for demos).
+/// Single light appearance (user decision: no dark theme).
+/// Banknote-green ticket, orange fleet, warm cream page, charcoal asphalt.
 struct SavingsTheme {
     let page: Color, pageText: Color, secCap: Color
     let ticketA: Color, ticketB: Color, ticketC: Color
+    let boardTile: Color, boardText: Color
     let asphaltA: Color, asphaltB: Color, paint: Color
-    let carTones: [(Color, Color, Color)]   // three tones, top→bottom gradient
+    let carTones: [(Color, Color, Color)]
     let glassA: Color, glassB: Color
     let warn: Color
     let stub: Color, stubText: Color, stubDash: Color
     let plus: Color, minus: Color, punchBG: Color, punchText: Color
-    let carGlow: Bool
 
     static let light = SavingsTheme(
         page: Color(hex: 0xF0EBE1), pageText: Color(hex: 0x23180F), secCap: Color(hex: 0x9A8D7A),
-        ticketA: Color(hex: 0xFB4E2A), ticketB: Color(hex: 0xFF6E3C), ticketC: Color(hex: 0xFF5168),
+        ticketA: Color(hex: 0x108A5F), ticketB: Color(hex: 0x19A373), ticketC: Color(hex: 0x0A6B49),
+        boardTile: Color(hex: 0x0A3B2A), boardText: Color(hex: 0xF2FBF3),
         asphaltA: Color(hex: 0x3F4045), asphaltB: Color(hex: 0x37383C), paint: Color(hex: 0xE9E7DF),
         carTones: [
-            (Color(hex: 0xFF8256), Color(hex: 0xF9502B), Color(hex: 0xDD431F)),
-            (Color(hex: 0xFF9A5E), Color(hex: 0xFB6A2E), Color(hex: 0xE2521F)),
-            (Color(hex: 0xF7744E), Color(hex: 0xE84A24), Color(hex: 0xC93A18)),
+            (Color(hex: 0xF8A145), Color(hex: 0xEF8420), Color(hex: 0xD06A12)),
+            (Color(hex: 0xFFB45C), Color(hex: 0xF2933A), Color(hex: 0xD9791F)),
+            (Color(hex: 0xEB8C33), Color(hex: 0xD97118), Color(hex: 0xB95C0E)),
         ],
-        glassA: Color(hex: 0x46281E), glassB: Color(hex: 0x2C1811),
+        glassA: Color(hex: 0x2C2214), glassB: Color(hex: 0x1A130A),
         warn: Color(hex: 0xF2B23A),
         stub: .white, stubText: Color(hex: 0x23180F), stubDash: Color(hex: 0xE6DDCD),
-        plus: Color(hex: 0x2C7A45), minus: Color(hex: 0xB23A12),
-        punchBG: Color(hex: 0xFFE6DD), punchText: Color(hex: 0xB23A12),
-        carGlow: false)
-
-    static let dark = SavingsTheme(
-        page: Color(hex: 0x121214), pageText: Color(hex: 0xECE9E2), secCap: Color(hex: 0x8B8781),
-        ticketA: Color(hex: 0xD8401F), ticketB: Color(hex: 0xF0562C), ticketC: Color(hex: 0xC23350),
-        asphaltA: Color(hex: 0x26262A), asphaltB: Color(hex: 0x1E1E22), paint: Color(hex: 0xD9D6CF),
-        carTones: [
-            (Color(hex: 0xFF8256), Color(hex: 0xF9502B), Color(hex: 0xDD431F)),
-            (Color(hex: 0xFF9A5E), Color(hex: 0xFB6A2E), Color(hex: 0xE2521F)),
-            (Color(hex: 0xF7744E), Color(hex: 0xE84A24), Color(hex: 0xC93A18)),
-        ],
-        glassA: Color(hex: 0x46281E), glassB: Color(hex: 0x2C1811),
-        warn: Color(hex: 0xF2B23A),
-        stub: Color(hex: 0x1E1E21), stubText: Color(hex: 0xECE9E2), stubDash: Color(hex: 0x33333A),
-        plus: Color(hex: 0x5FD68F), minus: Color(hex: 0xFF9078),
-        punchBG: Color(hex: 0x3A241C), punchText: Color(hex: 0xFFB08E),
-        carGlow: true)
+        plus: Color(hex: 0x0F8A5F), minus: Color(hex: 0xB23A12),
+        punchBG: Color(hex: 0xD9EEE2), punchText: Color(hex: 0x0D7A54))
 }
 
 /// One cell of the car park.
@@ -132,44 +115,33 @@ struct SavingsLedgerView: View {
     @Query(sort: \Session.startedAt, order: .reverse) private var sessions: [Session]
     @Query(sort: \InterventionEvent.firedAt, order: .reverse) private var events: [InterventionEvent]
 
-    /// "system" | "light" | "dark" — the demo toggle cycles light/dark.
-    @AppStorage("savingsForcedScheme") private var forcedScheme = "system"
-    @State private var displayedAED = Decimal(0)
     @State private var carsParked = false
 
-    private var theme: SavingsTheme {
-        switch forcedScheme {
-        case "light": return .light
-        case "dark": return .dark
-        default:
-            let style = UIScreen.main.traitCollection.userInterfaceStyle
-            return style == .dark ? .dark : .light
-        }
-    }
+    private let theme = SavingsTheme.light
 
     private var saves: [InterventionEvent] { events.filter(\.decisive) }
     private var totals: SavingsTotals { SavingsStats.totals(in: modelContext) }
     private var spend: Decimal { SavingsStats.estimatedSpendAED(sessions: sessions) }
 
     var body: some View {
-        let theme = self.theme
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                TicketHero(theme: theme, totals: totals, spend: spend, displayedAED: displayedAED)
+                TicketHero(theme: theme, totals: totals, spend: spend,
+                           reduceMotion: reduceMotion)
                     .padding(.top, 6)
 
-                sectionCap("Six months · one bay per save", theme)
+                sectionCap("Six months · one bay per save")
                 LotView(theme: theme, bays: bayContents(), bestMonth: bestMonthLabel(),
                         parked: carsParked, reduceMotion: reduceMotion)
 
-                sectionCap("Torn off — your receipts", theme)
-                receiptsCard(theme)
+                sectionCap("Torn off — your receipts")
+                receiptsCard()
 
-                sectionCap("The app had your back", theme)
-                activityCard(theme)
+                sectionCap("The app had your back")
+                activityCard()
 
                 Text("Estimates from the reminder ledger — likely, never certain.")
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .foregroundStyle(theme.secCap)
                     .frame(maxWidth: .infinity)
                     .padding(.top, 16)
@@ -183,43 +155,17 @@ struct SavingsLedgerView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text("Savings")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(theme.pageText)
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    // Cycle: whatever shows now → the other appearance.
-                    forcedScheme = (theme.carGlow ? "light" : "dark")
-                } label: {
-                    Image(systemName: theme.carGlow ? "sun.max.fill" : "moon.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(theme.secCap)
-                }
-                .accessibilityLabel("Switch savings appearance")
-            }
         }
-        .onAppear {
-            if reduceMotion {
-                displayedAED = totals.avoidedAED
-                carsParked = true
-            } else {
-                withAnimation(.spring(response: 1.1, dampingFraction: 0.95)) {
-                    displayedAED = totals.avoidedAED
-                }
-                carsParked = true // cars animate individually via staggered springs
-            }
-        }
-        .onChange(of: totals.avoidedAED) {
-            withAnimation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.9)) {
-                displayedAED = totals.avoidedAED
-            }
-        }
+        .onAppear { carsParked = true }
     }
 
-    private func sectionCap(_ text: String, _ theme: SavingsTheme) -> some View {
-        Text(text.uppercased())
-            .font(.system(size: 11, weight: .heavy))
-            .kerning(1.6)
+    /// Matches the app's section labels: 13pt semibold, sentence case.
+    private func sectionCap(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(theme.secCap)
             .padding(.horizontal, 4)
             .padding(.top, 22)
@@ -255,15 +201,13 @@ struct SavingsLedgerView: View {
         return formatter.string(from: best.month).uppercased()
     }
 
-    // MARK: receipts + activity in the ticket-stub language
-
-    private func receiptsCard(_ theme: SavingsTheme) -> some View {
+    private func receiptsCard() -> some View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM"
         return StubCard(theme: theme) {
             if saves.isEmpty {
                 Text("No saves yet — counting starts the first time a reminder catches a fine for you.")
-                    .font(.system(size: 13.5))
+                    .font(.system(size: 14))
                     .foregroundStyle(theme.secCap)
                     .padding(.vertical, 12)
             } else {
@@ -286,7 +230,7 @@ struct SavingsLedgerView: View {
         }
     }
 
-    private func activityCard(_ theme: SavingsTheme) -> some View {
+    private func activityCard() -> some View {
         let counts = ActivityLog.counts(in: modelContext)
         let items: [(String, ActivityKind)] = [
             ("Parkin hand-offs", .parkinOpened),
@@ -300,11 +244,11 @@ struct SavingsLedgerView: View {
                 if index > 0 { DashedRule(color: theme.stubDash) }
                 HStack {
                     Text(item.0)
-                        .font(.system(size: 13.5, weight: .medium))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(theme.stubText)
                     Spacer()
                     Text("\(counts[item.1] ?? 0)×")
-                        .font(.system(size: 13.5, weight: .bold))
+                        .font(.system(size: 14, weight: .semibold))
                         .monospacedDigit()
                         .foregroundStyle(theme.stubText.opacity(0.75))
                 }
@@ -323,13 +267,13 @@ struct SavingsLedgerView: View {
     }
 }
 
-// MARK: - Ticket hero
+// MARK: - Ticket hero (banknote green, split-flap amount)
 
 private struct TicketHero: View {
     let theme: SavingsTheme
     let totals: SavingsTotals
     let spend: Decimal
-    let displayedAED: Decimal
+    let reduceMotion: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -338,22 +282,19 @@ private struct TicketHero: View {
                 Spacer()
                 Text("SAVINGS PASS")
             }
-            .font(.system(size: 12.5, weight: .bold))
+            .font(.system(size: 12.5, weight: .semibold))
             .kerning(0.5)
             .opacity(0.95)
 
-            Text("~AED \(formatAED(displayedAED))")
-                .font(.system(size: 52, weight: .heavy, design: .rounded))
-                .kerning(-0.5)
-                .monospacedDigit()
-                .padding(.top, 12)
-                .contentTransition(.numericText(value: NSDecimalNumber(decimal: displayedAED).doubleValue))
+            FlapBoard(text: "~AED \(formatAED(totals.avoidedAED))",
+                      theme: theme, reduceMotion: reduceMotion)
+                .padding(.top, 14)
                 .accessibilityLabel("About \(formatAED(totals.avoidedAED)) dirhams in fines likely avoided")
 
             Text("in fines, likely avoided · \(totals.likelySaves) save\(totals.likelySaves == 1 ? "" : "s")")
                 .font(.system(size: 13.5, weight: .medium))
                 .opacity(0.93)
-                .padding(.top, 7)
+                .padding(.top, 10)
 
             DashedRule(color: .white.opacity(0.42), thickness: 2)
                 .padding(.vertical, 12)
@@ -363,7 +304,7 @@ private struct TicketHero: View {
                 Spacer()
                 Text(roiText)
             }
-            .font(.system(size: 12, weight: .bold))
+            .font(.system(size: 12, weight: .semibold))
             .kerning(0.4)
             .opacity(0.95)
             .monospacedDigit()
@@ -381,8 +322,8 @@ private struct TicketHero: View {
                            startPoint: .topLeading, endPoint: .bottomTrailing),
             in: RoundedRectangle(cornerRadius: 20, style: .continuous)
         )
-        .overlay(alignment: .topLeading) { notch.offset(x: -13, y: 106) }
-        .overlay(alignment: .topTrailing) { notch.offset(x: 13, y: 106) }
+        .overlay(alignment: .topLeading) { notch.offset(x: -13, y: 110) }
+        .overlay(alignment: .topTrailing) { notch.offset(x: 13, y: 110) }
     }
 
     private var notch: some View {
@@ -394,6 +335,74 @@ private struct TicketHero: View {
         let multiple = NSDecimalNumber(decimal: totals.avoidedAED).doubleValue
             / NSDecimalNumber(decimal: spend).doubleValue
         return "RETURN ≈\(String(format: "%.0f", multiple))×"
+    }
+}
+
+// MARK: - Split-flap airport board
+
+/// The savings total as a Solari departure board: every character is a tile
+/// that clatters through the alphabet before settling. Spaces render as gaps.
+private struct FlapBoard: View {
+    let text: String
+    let theme: SavingsTheme
+    let reduceMotion: Bool
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(Array(text.enumerated()), id: \.offset) { index, character in
+                if character == " " {
+                    Spacer().frame(width: 7)
+                } else {
+                    FlapCell(target: character, flips: reduceMotion ? 0 : 5 + index * 2,
+                             theme: theme,
+                             narrow: character == "," || character == "~" || character == ".")
+                }
+            }
+        }
+        .monospacedDigit()
+    }
+}
+
+private struct FlapCell: View {
+    let target: Character
+    let flips: Int
+    let theme: SavingsTheme
+    let narrow: Bool
+
+    @State private var shown: String = " "
+    @State private var settled = false
+
+    private static let reel = Array("0123456789AED~,")
+
+    var body: some View {
+        Text(shown)
+            .font(.system(size: 27, weight: .bold))
+            .monospacedDigit()
+            .foregroundStyle(theme.boardText)
+            .frame(width: narrow ? 16 : 27, height: 40)
+            .background(theme.boardTile, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(
+                // the split line every flap board has
+                Rectangle().fill(.black.opacity(0.3)).frame(height: 1.2)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(.white.opacity(0.09), lineWidth: 0.8)
+            )
+            .scaleEffect(y: settled ? 1 : 0.96)
+            .task {
+                guard flips > 0 else { shown = String(target); settled = true; return }
+                // start from a deterministic offset in the reel, spin to target
+                let reel = Self.reel
+                let start = abs(target.hashValue &+ flips) % reel.count
+                for step in 0..<flips {
+                    shown = String(reel[(start + step) % reel.count])
+                    try? await Task.sleep(nanoseconds: 55_000_000)
+                    if Task.isCancelled { return }
+                }
+                shown = String(target)
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) { settled = true }
+            }
     }
 }
 
@@ -459,7 +468,6 @@ private struct LotView: View {
             ZStack {
                 LinearGradient(colors: [theme.asphaltA, theme.asphaltB],
                                startPoint: .top, endPoint: .bottom)
-                // oil stains + ghosted P — atmosphere at whisper volume
                 Ellipse().fill(.black.opacity(0.16)).frame(width: 90, height: 46).offset(x: -70, y: -60)
                 Ellipse().fill(.black.opacity(0.12)).frame(width: 66, height: 34).offset(x: 90, y: 70)
                 Text("P")
@@ -496,7 +504,7 @@ private struct LotView: View {
             Spacer()
             Text("→")
         }
-        .font(.system(size: 11, weight: .heavy))
+        .font(.system(size: 11, weight: .bold))
         .foregroundStyle(theme.paint.opacity(0.8))
         .padding(.horizontal, 12)
         .frame(height: 36)
@@ -524,7 +532,7 @@ private struct LotView: View {
             Text(bestMonth.map { "best · \($0)" } ?? "")
                 .opacity(0.65)
         }
-        .font(.system(size: 10.5, weight: .bold))
+        .font(.system(size: 10.5, weight: .semibold))
         .foregroundStyle(theme.paint.opacity(0.8))
         .padding(.horizontal, 4)
         .padding(.top, 9)
@@ -543,7 +551,6 @@ private struct BayCell: View {
 
     var body: some View {
         ZStack {
-            // painted side lines, open toward the lane
             HStack {
                 bayLine
                 Spacer()
@@ -575,11 +582,11 @@ private struct BayCell: View {
         switch content {
         case .car(_, let month), .fine(let month):
             Text(month)
-                .font(.system(size: 8, weight: .heavy))
+                .font(.system(size: 8, weight: .bold))
                 .kerning(1)
                 .foregroundStyle(theme.paint.opacity(0.65))
         case .next:
-            Text(" ").font(.system(size: 8, weight: .heavy))
+            Text(" ").font(.system(size: 8, weight: .bold))
         }
     }
 
@@ -602,7 +609,7 @@ private struct BayCell: View {
                     .rotationEffect(.degrees(-3))
                     .shadow(color: .black.opacity(0.4), radius: 0, y: 1)
                 Text("FINE")
-                    .font(.system(size: 7.5, weight: .heavy))
+                    .font(.system(size: 7.5, weight: .bold))
                     .kerning(1.4)
                     .foregroundStyle(theme.warn.opacity(0.8))
             }
@@ -613,7 +620,7 @@ private struct BayCell: View {
                                   style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
                     .frame(width: 27, height: 48)
                 Text("NEXT")
-                    .font(.system(size: 7.5, weight: .heavy))
+                    .font(.system(size: 7.5, weight: .bold))
                     .kerning(1.4)
                     .foregroundStyle(theme.paint.opacity(0.55))
             }
@@ -630,7 +637,6 @@ private struct CarView: View {
     var body: some View {
         let tones = theme.carTones[tone % theme.carTones.count]
         ZStack {
-            // body
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(LinearGradient(colors: [tones.0, tones.1, tones.2],
                                      startPoint: .top, endPoint: .bottom))
@@ -640,13 +646,11 @@ private struct CarView: View {
                         .blendMode(.overlay)
                 )
             VStack(spacing: 0) {
-                // headlights
                 HStack {
                     lamp; Spacer(); lamp
                 }
                 .padding(.horizontal, 3.5)
                 .padding(.top, 2)
-                // windshield
                 UnevenRoundedRectangle(topLeadingRadius: 3, bottomLeadingRadius: 5,
                                        bottomTrailingRadius: 5, topTrailingRadius: 3)
                     .fill(LinearGradient(colors: [theme.glassA, theme.glassB],
@@ -654,7 +658,6 @@ private struct CarView: View {
                     .frame(height: 9)
                     .padding(.horizontal, 3.5)
                     .padding(.top, 2.5)
-                // roof gloss
                 RoundedRectangle(cornerRadius: 3.5)
                     .fill(LinearGradient(colors: [.white.opacity(0.32), .white.opacity(0.06)],
                                          startPoint: .top, endPoint: .bottom))
@@ -662,7 +665,6 @@ private struct CarView: View {
                     .padding(.horizontal, 4)
                     .padding(.top, 1.5)
                 Spacer(minLength: 0)
-                // rear glass
                 RoundedRectangle(cornerRadius: 3)
                     .fill(theme.glassB.opacity(0.55))
                     .frame(height: 6)
@@ -673,8 +675,7 @@ private struct CarView: View {
         .frame(width: 31, height: 56)
         .overlay(alignment: .topLeading) { mirror.offset(x: -3.5, y: 12) }
         .overlay(alignment: .topTrailing) { mirror.offset(x: 3.5, y: 12) }
-        .shadow(color: theme.carGlow ? theme.carTones[0].1.opacity(0.4) : .black.opacity(0.5),
-                radius: theme.carGlow ? 7 : 4, y: 4)
+        .shadow(color: .black.opacity(0.5), radius: 4, y: 4)
     }
 
     private var lamp: some View {
@@ -712,19 +713,19 @@ private struct StubRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Text(punch)
-                .font(.system(size: 10, weight: .heavy))
+                .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(negative ? theme.minus : theme.punchText)
                 .frame(minWidth: 38)
                 .frame(height: 23)
                 .background(negative ? theme.minus.opacity(0.15) : theme.punchBG,
                             in: RoundedRectangle(cornerRadius: 6))
             Text(text)
-                .font(.system(size: 13.5, weight: .medium))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(theme.stubText)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)
             Text(amount)
-                .font(.system(size: 13.5, weight: .bold))
+                .font(.system(size: 14, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(negative ? theme.minus : theme.plus)
         }
