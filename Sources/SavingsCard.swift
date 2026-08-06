@@ -24,7 +24,7 @@ func formatAED(_ value: Decimal) -> String {
 private func kindColor(_ kind: InterventionKind) -> Color {
     switch kind {
     case .morningFreeToPaid: return Color(hex: 0xF5A623)
-    case .unpaidNag: return Theme.coral
+    case .unpaidNag: return Color(hex: 0xEE5A2B)
     case .expiryWarning: return Color(hex: 0xFF5168)
     }
 }
@@ -137,6 +137,9 @@ struct SavingsLedgerView: View {
                 sectionCap("Torn off — your receipts")
                 receiptsCard()
 
+                sectionCap("Where it came from")
+                sourcesCard()
+
                 sectionCap("The app had your back")
                 activityCard()
 
@@ -230,31 +233,93 @@ struct SavingsLedgerView: View {
         }
     }
 
-    private func activityCard() -> some View {
-        let counts = ActivityLog.counts(in: modelContext)
-        let items: [(String, ActivityKind)] = [
-            ("Parkin hand-offs", .parkinOpened),
-            ("SMS payments", .smsPayStarted),
-            ("False triggers caught", .notParkingDismissed),
-            ("Quiet at Home and Office", .quietArrival),
-            ("Free-spot arrivals", .freeArrival),
-        ].filter { (counts[$0.1] ?? 0) > 0 }
+    private func sourcesCard() -> some View {
+        let breakdown = SavingsStats.savesByKind(events: events)
+        let maxAED = breakdown.map(\.savedAED).max() ?? 1
         return StubCard(theme: theme) {
-            ForEach(Array(items.enumerated()), id: \.element.0) { index, item in
+            ForEach(Array(breakdown.enumerated()), id: \.element.kind) { index, entry in
                 if index > 0 { DashedRule(color: theme.stubDash) }
-                HStack {
-                    Text(item.0)
+                HStack(spacing: 12) {
+                    iconTile(entry.kind.icon, kindColor(entry.kind))
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(entry.kind.displayLabel)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(theme.stubText)
+                            Spacer()
+                            Text("~AED \(formatAED(entry.savedAED))")
+                                .font(.system(size: 14, weight: .semibold))
+                                .monospacedDigit()
+                                .foregroundStyle(theme.stubText)
+                        }
+                        GeometryReader { geo in
+                            let ratio = maxAED > 0
+                                ? NSDecimalNumber(decimal: entry.savedAED).doubleValue
+                                    / NSDecimalNumber(decimal: maxAED).doubleValue
+                                : 0
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(theme.stubDash.opacity(0.6))
+                                Capsule().fill(kindColor(entry.kind))
+                                    .frame(width: max(6, geo.size.width * ratio))
+                            }
+                        }
+                        .frame(height: 4.5)
+                    }
+                }
+                .padding(.vertical, 11)
+            }
+            if totals.finesReported > 0 {
+                DashedRule(color: theme.stubDash)
+                HStack(spacing: 12) {
+                    iconTile("exclamationmark.triangle.fill", Color(hex: 0xE8912B))
+                    Text("Fines that got through")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(theme.stubText)
                     Spacer()
-                    Text("\(counts[item.1] ?? 0)×")
+                    Text("AED \(formatAED(totals.finesReportedAED))")
                         .font(.system(size: 14, weight: .semibold))
                         .monospacedDigit()
-                        .foregroundStyle(theme.stubText.opacity(0.75))
+                        .foregroundStyle(Color(hex: 0xE8912B))
                 }
                 .padding(.vertical, 11)
             }
         }
+    }
+
+    private func activityCard() -> some View {
+        let counts = ActivityLog.counts(in: modelContext)
+        let items: [(String, String, ActivityKind)] = [
+            ("arrow.up.forward.app.fill", "Parkin hand-offs", .parkinOpened),
+            ("message.fill", "SMS payments", .smsPayStarted),
+            ("hand.raised.fill", "False triggers caught", .notParkingDismissed),
+            ("house.fill", "Quiet at Home and Office", .quietArrival),
+            ("checkmark.circle.fill", "Free-spot arrivals", .freeArrival),
+        ].filter { (counts[$0.2] ?? 0) > 0 }
+        return StubCard(theme: theme) {
+            ForEach(Array(items.enumerated()), id: \.element.1) { index, item in
+                if index > 0 { DashedRule(color: theme.stubDash) }
+                HStack(spacing: 12) {
+                    iconTile(item.0, Color(hex: 0xEE5A2B))
+                    Text(item.1)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(theme.stubText)
+                    Spacer()
+                    Text("\(counts[item.2] ?? 0)")
+                        .font(.system(size: 15, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(theme.stubText.opacity(0.55))
+                }
+                .padding(.vertical, 11)
+            }
+        }
+    }
+
+    private func iconTile(_ symbol: String, _ color: Color) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 30, height: 30)
+            .background(color, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private func receiptTitle(for event: InterventionEvent) -> String {
