@@ -100,11 +100,55 @@ struct SavingsTheme {
         punchBG: Color(hex: 0xD9EEE2), punchText: Color(hex: 0x0D7A54))
 }
 
-/// One cell of the car park.
-private enum BayContent {
-    case car(tone: Int, month: String)
-    case fine(month: String)
-    case next
+/// One month-bay of the year lot: a parked car means no fine that month.
+private struct MonthBay {
+    let label: String
+    let fined: Bool
+    let tone: Int
+}
+
+/// Presentation scaffolding: a made-up year for the demo. To be re-wired to
+/// the real ledger (month-grouped) before release.
+private enum DemoYear {
+    static let bays: [MonthBay] = [
+        MonthBay(label: "JAN", fined: false, tone: 0),
+        MonthBay(label: "FEB", fined: false, tone: 1),
+        MonthBay(label: "MAR", fined: true,  tone: 0),
+        MonthBay(label: "APR", fined: false, tone: 2),
+        MonthBay(label: "MAY", fined: false, tone: 0),
+        MonthBay(label: "JUN", fined: false, tone: 1),
+        MonthBay(label: "JUL", fined: true,  tone: 0),
+        MonthBay(label: "AUG", fined: false, tone: 2),
+        MonthBay(label: "SEP", fined: false, tone: 0),
+        MonthBay(label: "OCT", fined: false, tone: 1),
+        MonthBay(label: "NOV", fined: false, tone: 2),
+        MonthBay(label: "DEC", fined: false, tone: 0),
+    ]
+
+    /// (punch, title, amount, negative)
+    static let receipts: [[(String, String, String, Bool)]] = [
+        [("3 JAN", "Paid Zone 318C before charging began", "+150", false),
+         ("18 JAN", "Paid Zone 334B after the nag", "+150", false)],
+        [("9 FEB", "Extended Zone 365A before it lapsed", "+150", false)],
+        [("6 MAR", "Paid Zone 382F after the nag", "+150", false),
+         ("21 MAR", "One fine got through", "−150", true)],
+        [("11 APR", "Paid Zone 248W before charging began", "+150", false)],
+        [("2 MAY", "Extended Zone 382F before it lapsed", "+150", false),
+         ("24 MAY", "Paid Zone 248W before charging began", "+150", false)],
+        [("14 JUN", "Paid Zone 318C before charging began", "+150", false)],
+        [("8 JUL", "Paid Zone 365A after the nag", "+150", false),
+         ("19 JUL", "One fine got through", "−150", true)],
+        [("5 AUG", "Extended Zone 365A before it lapsed", "+150", false),
+         ("27 AUG", "Paid Zone 334B after the nag", "+150", false)],
+        [("9 SEP", "Paid Zone 318C before charging began", "+150", false)],
+        [("3 OCT", "Paid Zone 382F after the nag", "+150", false),
+         ("22 OCT", "Extended Zone 318C before it lapsed", "+150", false)],
+        [("12 NOV", "Paid Zone 334B before charging began", "+150", false)],
+        [("7 DEC", "Extended Zone 248W before it lapsed", "+150", false)],
+    ]
+
+    static let monthNames = ["January", "February", "March", "April", "May", "June",
+                             "July", "August", "September", "October", "November", "December"]
 }
 
 struct SavingsLedgerView: View {
@@ -114,6 +158,8 @@ struct SavingsLedgerView: View {
     @Query(sort: \InterventionEvent.firedAt, order: .reverse) private var events: [InterventionEvent]
 
     @State private var carsParked = false
+    /// Selected month bay (0 = January); receipts below follow the selection.
+    @State private var selectedMonth = 7
     /// Hero count-up: rolls from 0 to the real total on appear; instant
     /// under Reduce Motion.
     @State private var displayedAED = Decimal(0)
@@ -131,12 +177,17 @@ struct SavingsLedgerView: View {
                            displayedAED: displayedAED)
                     .padding(.top, 6)
 
-                sectionCap("Six months · one bay per save")
-                LotView(theme: theme, bays: bayContents(), bestMonth: bestMonthLabel(),
-                        parked: carsParked, reduceMotion: reduceMotion)
+                sectionCap("Your year · tap a month")
+                LotView(theme: theme, bays: DemoYear.bays, selected: selectedMonth,
+                        parked: carsParked, reduceMotion: reduceMotion) { index in
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8)) {
+                        selectedMonth = index
+                    }
+                    UISelectionFeedbackGenerator().selectionChanged()
+                }
 
-                sectionCap("Torn off — your receipts")
-                receiptsCard()
+                sectionCap("Torn off — \(DemoYear.monthNames[selectedMonth]) receipts")
+                receiptsCard(forMonth: selectedMonth)
 
                 sectionCap("Where it came from")
                 sourcesCard()
@@ -190,62 +241,24 @@ struct SavingsLedgerView: View {
             .padding(.bottom, 9)
     }
 
-    /// Saves + reported fines, chronological, capped at 11 bays + a NEXT slot.
-    private func bayContents() -> [BayContent] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM"
-        var seenFineSessions = Set<UUID>()
-        var dated: [(Date, BayContent)] = []
-        for (index, event) in saves.sorted(by: { ($0.resolvedAt ?? $0.firedAt) < ($1.resolvedAt ?? $1.firedAt) }).enumerated() {
-            let date = event.resolvedAt ?? event.firedAt
-            dated.append((date, .car(tone: index % 3, month: formatter.string(from: date).uppercased())))
-        }
-        for event in events where event.outcome == .gotFined && event.reportedFineAED != nil {
-            let key = event.relatedSessionID ?? event.id
-            guard seenFineSessions.insert(key).inserted else { continue }
-            let date = event.finedAt ?? event.firedAt
-            dated.append((date, .fine(month: formatter.string(from: date).uppercased())))
-        }
-        var bays = dated.sorted { $0.0 < $1.0 }.suffix(11).map(\.1)
-        if bays.count < 12 { bays.append(.next) }
-        return bays
-    }
-
-    private func bestMonthLabel() -> String? {
-        let monthly = SavingsStats.monthlySaves(events: events)
-        guard let best = monthly.max(by: { $0.savedAED < $1.savedAED }), best.savedAED > 0 else { return nil }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM"
-        return formatter.string(from: best.month).uppercased()
-    }
-
-    private func receiptsCard() -> some View {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM"
+    private func receiptsCard(forMonth month: Int) -> some View {
+        let rows = DemoYear.receipts[month]
         return StubCard(theme: theme) {
-            if saves.isEmpty {
-                Text("No saves yet — counting starts the first time a reminder catches a fine for you.")
+            if rows.isEmpty {
+                Text("A quiet month — nothing needed catching.")
                     .font(.system(size: 14))
                     .foregroundStyle(theme.secCap)
                     .padding(.vertical, 12)
             } else {
-                ForEach(Array(saves.prefix(8).enumerated()), id: \.element.id) { index, event in
+                ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
                     if index > 0 { DashedRule(color: theme.stubDash) }
-                    StubRow(theme: theme,
-                            punch: formatter.string(from: event.firedAt).uppercased(),
-                            text: receiptTitle(for: event),
-                            amount: "+\(formatAED(event.estimatedFineAvoidedAED))",
-                            negative: false)
-                }
-                if totals.finesReported > 0 {
-                    DashedRule(color: theme.stubDash)
-                    StubRow(theme: theme, punch: "✕",
-                            text: "One fine got through",
-                            amount: "−\(formatAED(totals.finesReportedAED))",
-                            negative: true)
+                    StubRow(theme: theme, punch: row.0, text: row.1,
+                            amount: row.3 ? row.2 : "\(row.2)", negative: row.3)
                 }
             }
         }
+        .id(month) // fresh transition per month
+        .transition(.opacity)
     }
 
     private func sourcesCard() -> some View {
@@ -457,25 +470,21 @@ struct DashedRule: View {
     }
 }
 
-// MARK: - The Lot
+// MARK: - The Lot (the year: one bay per month)
 
 private struct LotView: View {
     let theme: SavingsTheme
-    let bays: [BayContent]
-    let bestMonth: String?
+    let bays: [MonthBay]
+    let selected: Int
     let parked: Bool
     let reduceMotion: Bool
+    let onSelect: (Int) -> Void
 
     var body: some View {
-        let rowSize = 6
-        let topRow = Array(bays.prefix(rowSize))
-        let bottomRow = Array(bays.dropFirst(rowSize).prefix(rowSize))
         VStack(spacing: 0) {
-            bayRow(topRow, facingDown: true, indexOffset: 0)
+            bayRow(0..<6, facingDown: true)
             driveLane
-            if !bottomRow.isEmpty {
-                bayRow(bottomRow, facingDown: false, indexOffset: rowSize)
-            }
+            bayRow(6..<12, facingDown: false)
             footer
         }
         .padding(11)
@@ -494,13 +503,18 @@ private struct LotView: View {
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
-    private func bayRow(_ row: [BayContent], facingDown: Bool, indexOffset: Int) -> some View {
+    private func bayRow(_ range: Range<Int>, facingDown: Bool) -> some View {
         HStack(spacing: 0) {
-            ForEach(Array(row.enumerated()), id: \.offset) { index, content in
-                BayCell(theme: theme, content: content, facingDown: facingDown,
-                        jitter: jitter(indexOffset + index),
-                        delay: Double(indexOffset + index) * 0.07,
+            ForEach(range, id: \.self) { index in
+                BayCell(theme: theme, bay: bays[index], facingDown: facingDown,
+                        selected: index == selected,
+                        jitter: jitter(index),
+                        delay: Double(index) * 0.05,
                         parked: parked, reduceMotion: reduceMotion)
+                    .contentShape(Rectangle())
+                    .onTapGesture { onSelect(index) }
+                    .accessibilityLabel("\(DemoYear.monthNames[index]), \(bays[index].fined ? "fine that month" : "fine-free")")
+                    .accessibilityAddTraits(index == selected ? [.isButton, .isSelected] : .isButton)
             }
         }
         .frame(height: 100)
@@ -514,7 +528,7 @@ private struct LotView: View {
         HStack {
             Text("→")
             Spacer()
-            Text("+\(formatAED(ParkinRules.assumedFineAED)) EACH")
+            Text("TAP A MONTH")
                 .kerning(2)
             Spacer()
             Text("→")
@@ -536,16 +550,13 @@ private struct LotView: View {
                     .fill(LinearGradient(colors: [theme.carTones[0].0, theme.carTones[0].2],
                                          startPoint: .top, endPoint: .bottom))
                     .frame(width: 10, height: 16)
-                Text("save +150")
+                Text("fine-free month")
             }
             Spacer()
             HStack(spacing: 5) {
                 Text("✕").font(.system(size: 12, weight: .black)).foregroundStyle(theme.warn)
-                Text("fine −150")
+                Text("fine that month")
             }
-            Spacer()
-            Text(bestMonth.map { "best · \($0)" } ?? "")
-                .opacity(0.65)
         }
         .font(.system(size: 10.5, weight: .semibold))
         .foregroundStyle(theme.paint.opacity(0.8))
@@ -557,8 +568,9 @@ private struct LotView: View {
 
 private struct BayCell: View {
     let theme: SavingsTheme
-    let content: BayContent
+    let bay: MonthBay
     let facingDown: Bool
+    let selected: Bool
     let jitter: Double
     let delay: Double
     let parked: Bool
@@ -566,6 +578,12 @@ private struct BayCell: View {
 
     var body: some View {
         ZStack {
+            if selected {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(theme.paint.opacity(0.10))
+                    .padding(.horizontal, 2)
+                    .padding(.vertical, 1)
+            }
             HStack {
                 bayLine
                 Spacer()
@@ -585,38 +603,23 @@ private struct BayCell: View {
 
     private var bayLine: some View {
         LinearGradient(colors: facingDown
-                       ? [theme.paint.opacity(0.85), theme.paint.opacity(0.85), .clear]
-                       : [.clear, theme.paint.opacity(0.85), theme.paint.opacity(0.85)],
+                       ? [theme.paint.opacity(selected ? 1 : 0.85), theme.paint.opacity(selected ? 1 : 0.85), .clear]
+                       : [.clear, theme.paint.opacity(selected ? 1 : 0.85), theme.paint.opacity(selected ? 1 : 0.85)],
                        startPoint: .top, endPoint: .bottom)
-            .frame(width: 2)
+            .frame(width: selected ? 3 : 2)
             .clipShape(Capsule())
     }
 
-    @ViewBuilder
     private var monthLabel: some View {
-        switch content {
-        case .car(_, let month), .fine(let month):
-            Text(month)
-                .font(.system(size: 8, weight: .bold))
-                .kerning(1)
-                .foregroundStyle(theme.paint.opacity(0.65))
-        case .next:
-            Text(" ").font(.system(size: 8, weight: .bold))
-        }
+        Text(bay.label)
+            .font(.system(size: 8, weight: selected ? .heavy : .bold))
+            .kerning(1)
+            .foregroundStyle(selected ? theme.paint : theme.paint.opacity(0.65))
     }
 
     @ViewBuilder
     private var cell: some View {
-        switch content {
-        case .car(let tone, _):
-            CarView(theme: theme, tone: tone)
-                .rotationEffect(.degrees((facingDown ? 180 : 0) + jitter))
-                .scaleEffect(parked || reduceMotion ? 1 : 0.2)
-                .opacity(parked || reduceMotion ? 1 : 0)
-                .animation(reduceMotion ? nil
-                           : .spring(response: 0.5, dampingFraction: 0.72).delay(delay),
-                           value: parked)
-        case .fine:
+        if bay.fined {
             VStack(spacing: 2) {
                 Text("✕")
                     .font(.system(size: 26, weight: .black))
@@ -628,18 +631,14 @@ private struct BayCell: View {
                     .kerning(1.4)
                     .foregroundStyle(theme.warn.opacity(0.8))
             }
-        case .next:
-            VStack(spacing: 4) {
-                RoundedRectangle(cornerRadius: 9)
-                    .strokeBorder(theme.paint.opacity(0.5),
-                                  style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
-                    .frame(width: 27, height: 48)
-                Text("NEXT")
-                    .font(.system(size: 7.5, weight: .bold))
-                    .kerning(1.4)
-                    .foregroundStyle(theme.paint.opacity(0.55))
-            }
-            .opacity(0.6)
+        } else {
+            CarView(theme: theme, tone: bay.tone)
+                .rotationEffect(.degrees((facingDown ? 180 : 0) + jitter))
+                .scaleEffect(parked || reduceMotion ? 1 : 0.2)
+                .opacity(parked || reduceMotion ? 1 : 0)
+                .animation(reduceMotion ? nil
+                           : .spring(response: 0.5, dampingFraction: 0.72).delay(delay),
+                           value: parked)
         }
     }
 }
