@@ -100,10 +100,12 @@ struct SavingsTheme {
         punchBG: Color(hex: 0xD9EEE2), punchText: Color(hex: 0x0D7A54))
 }
 
-/// One month-bay of the year lot: a parked car means no fine that month.
+/// One month-bay of the year lot: a parked car means no fine that month;
+/// future months sit as empty dotted bays.
 private struct MonthBay {
     let label: String
     let fined: Bool
+    let future: Bool
     let tone: Int
 }
 
@@ -111,41 +113,48 @@ private struct MonthBay {
 /// the real ledger (month-grouped) before release.
 private enum DemoYear {
     static let bays: [MonthBay] = [
-        MonthBay(label: "JAN", fined: false, tone: 0),
-        MonthBay(label: "FEB", fined: false, tone: 1),
-        MonthBay(label: "MAR", fined: true,  tone: 0),
-        MonthBay(label: "APR", fined: false, tone: 2),
-        MonthBay(label: "MAY", fined: false, tone: 0),
-        MonthBay(label: "JUN", fined: false, tone: 1),
-        MonthBay(label: "JUL", fined: true,  tone: 0),
-        MonthBay(label: "AUG", fined: false, tone: 2),
-        MonthBay(label: "SEP", fined: false, tone: 0),
-        MonthBay(label: "OCT", fined: false, tone: 1),
-        MonthBay(label: "NOV", fined: false, tone: 2),
-        MonthBay(label: "DEC", fined: false, tone: 0),
+        MonthBay(label: "JAN", fined: false, future: false, tone: 0),
+        MonthBay(label: "FEB", fined: false, future: false, tone: 1),
+        MonthBay(label: "MAR", fined: true,  future: false, tone: 0),
+        MonthBay(label: "APR", fined: false, future: false, tone: 2),
+        MonthBay(label: "MAY", fined: false, future: false, tone: 0),
+        MonthBay(label: "JUN", fined: false, future: false, tone: 1),
+        MonthBay(label: "JUL", fined: false, future: false, tone: 2),
+        MonthBay(label: "AUG", fined: false, future: false, tone: 0),
+        MonthBay(label: "SEP", fined: false, future: true,  tone: 0),
+        MonthBay(label: "OCT", fined: false, future: true,  tone: 1),
+        MonthBay(label: "NOV", fined: false, future: true,  tone: 2),
+        MonthBay(label: "DEC", fined: false, future: true,  tone: 0),
     ]
 
-    /// (punch, title, amount, negative)
-    static let receipts: [[(String, String, String, Bool)]] = [
-        [("3 JAN", "Paid Zone 318C before charging began", "+150", false),
-         ("18 JAN", "Paid Zone 334B after the nag", "+150", false)],
-        [("9 FEB", "Extended Zone 365A before it lapsed", "+150", false)],
-        [("6 MAR", "Paid Zone 382F after the nag", "+150", false),
-         ("21 MAR", "One fine got through", "−150", true)],
-        [("11 APR", "Paid Zone 248W before charging began", "+150", false)],
-        [("2 MAY", "Extended Zone 382F before it lapsed", "+150", false),
-         ("24 MAY", "Paid Zone 248W before charging began", "+150", false)],
-        [("14 JUN", "Paid Zone 318C before charging began", "+150", false)],
-        [("8 JUL", "Paid Zone 365A after the nag", "+150", false),
-         ("19 JUL", "One fine got through", "−150", true)],
-        [("5 AUG", "Extended Zone 365A before it lapsed", "+150", false),
-         ("27 AUG", "Paid Zone 334B after the nag", "+150", false)],
-        [("9 SEP", "Paid Zone 318C before charging began", "+150", false)],
-        [("3 OCT", "Paid Zone 382F after the nag", "+150", false),
-         ("22 OCT", "Extended Zone 318C before it lapsed", "+150", false)],
-        [("12 NOV", "Paid Zone 334B before charging began", "+150", false)],
-        [("7 DEC", "Extended Zone 248W before it lapsed", "+150", false)],
-    ]
+    /// (punch, title, amount, negative) — 6–8 generated rows per completed
+    /// month; future months are empty.
+    static let receipts: [[(String, String, String, Bool)]] = {
+        let zones = ["318C", "334B", "382F", "248W", "365A", "112D"]
+        let templates = [
+            "Paid Zone %@ before charging began",
+            "Paid Zone %@ after the nag",
+            "Extended Zone %@ before it lapsed",
+        ]
+        let counts = [7, 6, 8, 6, 7, 8, 6, 7, 0, 0, 0, 0]
+        let months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+                      "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+        var all: [[(String, String, String, Bool)]] = []
+        for month in 0..<12 {
+            var rows: [(String, String, String, Bool)] = []
+            for i in 0..<counts[month] {
+                let zone = zones[(month + i * 2) % zones.count]
+                let title = String(format: templates[(month + i) % templates.count], zone)
+                let day = 1 + i * 3 + (month % 3)
+                rows.append(("\(day) \(months[month])", title, "+150", false))
+            }
+            if month == 2, rows.count >= 3 {
+                rows.insert(("21 MAR", "One fine got through", "−150", true), at: 2)
+            }
+            all.append(rows)
+        }
+        return all
+    }()
 
     static let monthNames = ["January", "February", "March", "April", "May", "June",
                              "July", "August", "September", "October", "November", "December"]
@@ -245,7 +254,7 @@ struct SavingsLedgerView: View {
         let rows = DemoYear.receipts[month]
         return StubCard(theme: theme) {
             if rows.isEmpty {
-                Text("A quiet month — nothing needed catching.")
+                Text("Nothing here yet — \(DemoYear.monthNames[month]) is still ahead.")
                     .font(.system(size: 14))
                     .foregroundStyle(theme.secCap)
                     .padding(.vertical, 12)
@@ -480,6 +489,9 @@ private struct LotView: View {
     let reduceMotion: Bool
     let onSelect: (Int) -> Void
 
+    /// Floodlight: a brief light wash over the whole lot when a month is picked.
+    @State private var floodlight = false
+
     var body: some View {
         VStack(spacing: 0) {
             bayRow(0..<6, facingDown: true)
@@ -500,7 +512,22 @@ private struct LotView: View {
                     .offset(x: 120, y: 78)
             }
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(RadialGradient(colors: [.white.opacity(0.55), .white.opacity(0.12), .clear],
+                                     center: .center, startRadius: 20, endRadius: 280))
+                .opacity(floodlight ? 1 : 0)
+                .allowsHitTesting(false)
+        )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .onChange(of: selected) {
+            guard !reduceMotion else { return }
+            withAnimation(.easeIn(duration: 0.12)) { floodlight = true }
+            Task {
+                try? await Task.sleep(nanoseconds: 160_000_000)
+                withAnimation(.easeOut(duration: 0.5)) { floodlight = false }
+            }
+        }
     }
 
     private func bayRow(_ range: Range<Int>, facingDown: Bool) -> some View {
@@ -619,7 +646,13 @@ private struct BayCell: View {
 
     @ViewBuilder
     private var cell: some View {
-        if bay.fined {
+        if bay.future {
+            RoundedRectangle(cornerRadius: 9)
+                .strokeBorder(theme.paint.opacity(0.45),
+                              style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
+                .frame(width: 27, height: 48)
+                .opacity(0.6)
+        } else if bay.fined {
             VStack(spacing: 2) {
                 Text("✕")
                     .font(.system(size: 26, weight: .black))
