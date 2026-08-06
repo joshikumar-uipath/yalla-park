@@ -86,7 +86,7 @@ struct SavingsTheme {
 
     static let light = SavingsTheme(
         page: Color(hex: 0xF0EBE1), pageText: Color(hex: 0x23180F), secCap: Color(hex: 0x9A8D7A),
-        ticketA: Color(hex: 0xF59A2B), ticketB: Color(hex: 0xEF7E1A), ticketC: Color(hex: 0xD8650D),
+        ticketA: Color(hex: 0xFB4E2A), ticketB: Color(hex: 0xFF6E3C), ticketC: Color(hex: 0xFF5168),
         asphaltA: Color(hex: 0x3F4045), asphaltB: Color(hex: 0x37383C), paint: Color(hex: 0xE9E7DF),
         carTones: [
             (Color(hex: 0x34B37E), Color(hex: 0x19A373), Color(hex: 0x0E7D57)),
