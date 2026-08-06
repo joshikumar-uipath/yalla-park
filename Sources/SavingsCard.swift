@@ -264,8 +264,13 @@ struct SavingsLedgerView: View {
             } else {
                 ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
                     if index > 0 { DashedRule(color: theme.stubDash) }
-                    StubRow(theme: theme, punch: row.0, text: row.1,
-                            amount: row.3 ? row.2 : "\(row.2)", negative: row.3)
+                    if row.3 {
+                        KerbStrip(text: "\(row.0) · FINE GOT THROUGH · \(row.2)")
+                            .padding(.vertical, 9)
+                    } else {
+                        StubRow(theme: theme, punch: row.0, text: row.1,
+                                amount: row.2, negative: false)
+                    }
                 }
             }
         }
@@ -648,10 +653,10 @@ private struct BayCell: View {
                 // The lot lamp: a soft, rounded pool of warm light kept
                 // inside the bay's own lines.
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(RadialGradient(colors: [Color(hex: 0xFFDD8F).opacity(0.40),
-                                                  Color(hex: 0xFFD98A).opacity(0.12),
+                    .fill(RadialGradient(colors: [Color(hex: 0xF2B23A).opacity(0.62),
+                                                  Color(hex: 0xDF9B22).opacity(0.24),
                                                   .clear],
-                                         center: .center, startRadius: 4, endRadius: 52))
+                                         center: .center, startRadius: 4, endRadius: 56))
                     .padding(.horizontal, 3)
                     .padding(.vertical, 4)
                     .allowsHitTesting(false)
@@ -686,7 +691,7 @@ private struct BayCell: View {
         Text(bay.label)
             .font(.system(size: 8, weight: selected ? .heavy : .bold))
             .kerning(1)
-            .foregroundStyle(selected ? Color(hex: 0xFFDD8F) : theme.paint.opacity(0.65))
+            .foregroundStyle(selected ? Color(hex: 0xF2B23A) : theme.paint.opacity(0.65))
     }
 
     @ViewBuilder
