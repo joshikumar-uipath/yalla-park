@@ -70,17 +70,28 @@ struct HomeView: View {
         recentZonesCSV.split(separator: ",").map(String.init).filter { !$0.isEmpty }
     }
     private var rate: Int { ParkinRules.estimatedRateAED(zone: zoneCode, kind: zoneKind) }
+    /// Hourly estimate for the sheet — nil hides the price (Parkonic).
+    private var displayRate: Int? {
+        switch parkingOperator {
+        case .parkin: return rate
+        default: return parkingOperator.estimatedRateAED(zone: zoneCode)
+        }
+    }
     private var plateProfile: PlateProfile {
         PlateProfile(emirate: Emirate(rawValue: plateEmirate) ?? .dubai,
                      letters: plateLetters, number: plateNumber)
     }
     private var smsBody: String {
-        // Extends route by the SESSION's operator: Parkonic extends with a
-        // bare "Y" reply to 6670; Parkin re-sends the full payment SMS.
+        // Extends route by the SESSION's operator: reply-style operators get
+        // their bare "Y"/"E"; resend-style get the full payment SMS again.
         if extending, let session = activeSession {
-            return session.parkingOperator == .parkonic
-                ? ParkonicRules.extendReply
-                : ParkinRules.smsBody(plate: plate, zone: session.zoneCode, hours: 1)
+            switch session.parkingOperator.extendMethod {
+            case .reply(let reply):
+                return reply
+            case .resendPayment:
+                return session.parkingOperator.smsBody(
+                    plate: plateProfile, zone: session.zoneCode, hours: 1)
+            }
         }
         return parkingOperator.smsBody(plate: plateProfile, zone: zoneCode, hours: hours)
     }
@@ -88,12 +99,15 @@ struct HomeView: View {
         if extending, let session = activeSession { return session.parkingOperator.smsNumber }
         return parkingOperator.smsNumber
     }
-    /// The pay button needs a plate and a plausible zone for the operator.
+    /// The pay button needs a plate and whatever "zone" means here.
     private var canPay: Bool {
         guard !plate.isEmpty else { return false }
-        return parkingOperator == .parkonic
-            ? ParkonicRules.isValidZone(zoneCode)
-            : !zoneCode.isEmpty
+        switch parkingOperator.zoneStyle {
+        case .community: return !zoneCode.isEmpty
+        case .pZone: return ParkonicRules.isValidZone(zoneCode)
+        case .tier: return ["S", "P"].contains(zoneCode.uppercased())
+        case .none: return true
+        }
     }
 
     var body: some View {
@@ -343,35 +357,36 @@ struct HomeView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 5)
 
-            if parkingOperator == .parkonic {
+            if let hourlyRate = displayRate {
+                (Text("\(verdict.reason) · about ").foregroundStyle(Theme.labelSecondary)
+                 + Text("AED \(hourlyRate)").fontWeight(.semibold).foregroundStyle(Theme.labelPrimary)
+                 + Text(" an hour here.").foregroundStyle(Theme.labelSecondary))
+                    .font(.system(size: 14.5, weight: .medium))
+            } else {
                 // Parkonic tariffs vary by community and aren't published —
                 // their confirmation SMS states the fee; we don't guess.
                 (Text("\(verdict.reason) · ").foregroundStyle(Theme.labelSecondary)
                  + Text("Parkonic zone").fontWeight(.semibold).foregroundStyle(Theme.labelPrimary)
                  + Text(" — the reply SMS confirms the fee.").foregroundStyle(Theme.labelSecondary))
                     .font(.system(size: 14.5, weight: .medium))
-            } else {
-                (Text("\(verdict.reason) · about ").foregroundStyle(Theme.labelSecondary)
-                 + Text("AED \(rate)").fontWeight(.semibold).foregroundStyle(Theme.labelPrimary)
-                 + Text(" an hour here.").foregroundStyle(Theme.labelSecondary))
-                    .font(.system(size: 14.5, weight: .medium))
             }
 
             // Driven by the editing flag, NOT by zoneCode content — the field
             // writes zoneCode, so an emptiness check would tear the field out
             // of the hierarchy on the first typed character (field-reported).
-            if zoneCode.isEmpty || manualZoneEntry {
+            // Tier/zone-less operators keep their compact entry always visible.
+            if parkingOperator.zoneStyle == .tier || parkingOperator.zoneStyle == ZoneStyle.none
+                || zoneCode.isEmpty || manualZoneEntry {
                 zoneEntry
             }
 
-            DurationControl(hours: $hours, maxHours: min(3, ParkinRules.maxPayableHours(kind: zoneKind)))
+            DurationControl(hours: $hours, maxHours: effectiveMaxHours)
                 .padding(.top, 18)
 
             Button(action: startPay) {
                 HStack(spacing: 8) {
-                    Text(parkingOperator == .parkonic
-                         ? "Pay \(hours) \(hours == 1 ? "hour" : "hours") by SMS"
-                         : "Pay \(hours) \(hours == 1 ? "hour" : "hours") · AED \(hours * rate)")
+                    Text(displayRate.map { "Pay \(hours) \(hours == 1 ? "hour" : "hours") · AED \(hours * $0)" }
+                         ?? "Pay \(hours) \(hours == 1 ? "hour" : "hours") by SMS")
                     Image(systemName: "arrow.right")
                         .font(.system(size: 15, weight: .semibold))
                 }
@@ -389,9 +404,7 @@ struct HomeView: View {
 
             Text(plate.isEmpty
                  ? "Add your plate in Settings first"
-                 : (parkingOperator == .parkonic
-                    ? "One tap — sends to 6670. \(ParkonicRules.simNote)"
-                    : "One tap — you press send in Messages"))
+                 : payFootnote)
                 .font(.system(size: 12.5))
                 .foregroundStyle(Theme.labelTertiary)
                 .frame(maxWidth: .infinity)
@@ -531,12 +544,27 @@ struct HomeView: View {
     }
 
     private var payTagText: String {
-        if parkingOperator == .parkonic {
+        switch parkingOperator {
+        case .parkin:
+            return zoneCode.isEmpty ? "Paid zone" : "Paid zone · Zone \(zoneCode.uppercased())"
+        case .parkonic:
             return zoneCode.isEmpty
                 ? "Parkonic zone"
                 : "Parkonic · Zone \(ParkonicRules.normalizeZone(zoneCode))"
+        case .mawaqif:
+            return "Mawaqif · \(zoneCode.uppercased() == "P" ? "Premium" : "Standard")"
+        case .sharjah, .ajman, .fujairah:
+            return "\(parkingOperator.regionLabel) parking"
         }
-        return zoneCode.isEmpty ? "Paid zone" : "Paid zone · Zone \(zoneCode.uppercased())"
+    }
+
+    private var payFootnote: String {
+        switch parkingOperator {
+        case .parkin: return "One tap — you press send in Messages"
+        case .parkonic: return "One tap — sends to 6670. \(ParkonicRules.simNote)"
+        case .ajman: return "One SMS buys 1 hour in Ajman — extend by replying Y"
+        default: return "One tap — sends to \(parkingOperator.smsNumber)"
+        }
     }
 
     /// Flip between operators by hand — for signs the community map got wrong.
@@ -552,7 +580,11 @@ struct HomeView: View {
     // Manual field only when we couldn't place them (or they say we got it wrong).
     @ViewBuilder
     private var zoneEntry: some View {
-        if parkingOperator == .parkonic {
+        if parkingOperator.zoneStyle == .tier {
+            mawaqifTierEntry
+        } else if parkingOperator.zoneStyle == ZoneStyle.none {
+            zonelessEntry
+        } else if parkingOperator == .parkonic {
             parkonicZoneEntry
         } else if let community = suggestedCommunity, !manualZoneEntry {
             VStack(alignment: .leading, spacing: 10) {
@@ -615,6 +647,55 @@ struct HomeView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Theme.coral)
         }
+    }
+
+    /// Geofences are coarse near borders — let the user pick the operator.
+    private var operatorMenu: some View {
+        Menu {
+            ForEach(ParkingOperator.allCases, id: \.self) { candidate in
+                Button {
+                    switchOperator(to: candidate)
+                    if candidate.zoneStyle == .tier { zoneCode = "S" }
+                } label: {
+                    if candidate == parkingOperator {
+                        Label("\(candidate.label) · \(candidate.regionLabel)", systemImage: "checkmark")
+                    } else {
+                        Text("\(candidate.label) · \(candidate.regionLabel)")
+                    }
+                }
+            }
+        } label: {
+            Text("Wrong operator? Change")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.coral)
+        }
+    }
+
+    /// Mawaqif (Abu Dhabi): no zones — just the kerb tier off the sign colour.
+    private var mawaqifTierEntry: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Kerb tier — check the sign: turquoise-black is Standard, turquoise-white is Premium")
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.labelTertiary)
+            Picker("Kerb tier", selection: $zoneCode) {
+                Text("Standard · AED 2/h").tag("S")
+                Text("Premium · AED 3/h").tag("P")
+            }
+            .pickerStyle(.segmented)
+            operatorMenu
+        }
+        .padding(.top, 14)
+    }
+
+    /// Sharjah / Ajman / Fujairah: one SMS covers the whole emirate.
+    private var zonelessEntry: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("\(parkingOperator.regionLabel) has no zone codes — one SMS covers the emirate.")
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.labelTertiary)
+            operatorMenu
+        }
+        .padding(.top, 14)
     }
 
     /// Parkonic State B: no letter chips — the whole code (P105) is on the
@@ -790,7 +871,8 @@ struct HomeView: View {
     // State D (M1 mini) — active session
     private func activeSessionContent(_ session: Session) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            TagPill(text: "Paid · \(zoneLabel(session.zoneCode))", background: Theme.freeTagBackground,
+            TagPill(text: "Paid · \(zoneLabel(session.zoneCode, operator: session.parkingOperator))",
+                    background: Theme.freeTagBackground,
                     foreground: Theme.success, dot: Theme.success)
 
             TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -1025,12 +1107,18 @@ struct HomeView: View {
         }
         // District lookup: pre-fills the zone *number*; the sign supplies the letter.
         suggestedCommunity = ZoneLocator.community(at: coordinate)
-        // Operator from the community map — spot memory and a manual flip
-        // both outrank it (JVC/DSO/Gardens are Parkonic, not Parkin).
+        // Operator resolution — spot memory and a manual flip both outrank it.
+        // Inside Dubai (community polygons hit): Parkin, or Parkonic for
+        // JVC/DSO/Gardens. Outside Dubai: coarse emirate geofences.
         if matchedSpot == nil, !operatorOverridden {
-            if let community = suggestedCommunity,
-               ParkonicRules.isParkonicCommunity(community.number) {
-                parkingOperator = .parkonic
+            if let community = suggestedCommunity {
+                parkingOperator = ParkonicRules.isParkonicCommunity(community.number)
+                    ? .parkonic : .parkin
+            } else if let regional = EmirateLocator.parkingOperator(at: coordinate) {
+                parkingOperator = regional
+                // Mawaqif's "zone" is the kerb tier — default Standard.
+                if parkingOperator.zoneStyle == .tier, zoneCode.isEmpty { zoneCode = "S" }
+                if parkingOperator.zoneStyle == ZoneStyle.none { zoneCode = "" }
             } else {
                 parkingOperator = .parkin
             }
@@ -1060,8 +1148,16 @@ struct HomeView: View {
                               nextChange: nil)
             return
         }
-        verdict = ParkinRules.verdict(kind: zoneKind)
-        hours = min(hours, ParkinRules.maxPayableHours(kind: zoneKind))
+        verdict = RegionRules.verdict(for: parkingOperator, kind: zoneKind)
+        hours = min(hours, effectiveMaxHours)
+    }
+
+    /// UI cap (3) ∩ what the paid window allows ∩ what one SMS can buy
+    /// (Ajman sells exactly 1 hour per message).
+    private var effectiveMaxHours: Int {
+        min(3,
+            RegionRules.maxPayableHours(for: parkingOperator, kind: zoneKind),
+            parkingOperator.maxHoursPerSMS)
     }
 
     // MARK: - Pay flow
@@ -1109,20 +1205,26 @@ struct HomeView: View {
         let now = Date.now
         if extending, let session = activeSession {
             // A fired expiry warning followed by this extend = a likely save.
-            InterventionLog.resolveExtend(sessionID: session.id, at: now, in: modelContext)
+            InterventionLog.resolveExtend(sessionID: session.id, at: now,
+                                          fineAED: session.parkingOperator.assumedFineAED,
+                                          in: modelContext)
             session.extend()
             extending = false
             NotificationManager.shared.scheduleExpiryReminders(
-                zone: session.zoneCode, expiresAt: session.expiresAt)
+                zoneText: zoneLabel(session.zoneCode, operator: session.parkingOperator),
+                expiresAt: session.expiresAt)
             logExpiryIntervention(for: session, now: now)
             LiveActivityManager.update(startedAt: session.startedAt, expiresAt: session.expiresAt)
             WidgetSessionStore.update(startedAt: session.startedAt, expiresAt: session.expiresAt)
             return
         }
 
-        // Store the zone the way the operator writes it (P105, not 105).
+        // Store the zone the way the operator writes it (P105, not 105; S/P
+        // tiers uppercase).
         if parkingOperator == .parkonic {
             zoneCode = ParkonicRules.normalizeZone(zoneCode)
+        } else if parkingOperator.zoneStyle == .tier {
+            zoneCode = zoneCode.uppercased()
         }
         let session = Session(plate: plate, zoneCode: zoneCode, kind: zoneKind, durationHours: hours)
         session.paymentAttempted = true
@@ -1133,7 +1235,9 @@ struct HomeView: View {
         modelContext.insert(session)
         // A fired nag/morning reminder followed by this payment = a likely save.
         InterventionLog.resolvePayment(zone: session.zoneCode.uppercased(),
-                                       sessionID: session.id, at: now, in: modelContext)
+                                       sessionID: session.id, at: now,
+                                       fineAED: parkingOperator.assumedFineAED,
+                                       in: modelContext)
         rememberSpotAndZone()
         // Paid: the nag and morning reminder are off the table; expiry watch begins.
         NotificationManager.shared.cancelUnpaidNag()
@@ -1141,7 +1245,8 @@ struct HomeView: View {
         InterventionLog.discardUnfired(kinds: [.unpaidNag, .morningFreeToPaid],
                                        in: modelContext, now: now)
         NotificationManager.shared.scheduleExpiryReminders(
-            zone: session.zoneCode, expiresAt: session.expiresAt)
+            zoneText: zoneLabel(session.zoneCode, operator: session.parkingOperator),
+            expiresAt: session.expiresAt)
         logExpiryIntervention(for: session, now: now)
         LiveActivityManager.start(zoneCode: session.zoneCode, plate: session.plate,
                                   startedAt: session.startedAt, expiresAt: session.expiresAt)

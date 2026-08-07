@@ -91,17 +91,20 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     // MARK: - Layer 4b: expiry reminders (with lock-screen +1 hr action)
 
-    func scheduleExpiryReminders(zone: String, expiresAt: Date) {
+    /// `zoneText` is the READY display label ("Zone 318C", "Sharjah Parking")
+    /// — callers format it with zoneLabel(_:operator:) so zone-less regions
+    /// never read "via Parkin app" here.
+    func scheduleExpiryReminders(zoneText: String, expiresAt: Date) {
         cancelSessionReminders()
         guard remindExpiry else { return }
         schedule(id: ID.expirySoon,
                  title: "Parking expires in 10 minutes",
-                 body: "\(zoneLabel(zone)) — extend from here if you're staying.",
+                 body: "\(zoneText) — extend from here if you're staying.",
                  at: expiresAt.addingTimeInterval(-ParkinRules.expiryWarningLead),
                  category: CategoryID.expiry)
         schedule(id: ID.expired,
                  title: "Parking expired!",
-                 body: "\(zoneLabel(zone)) — your session has ended. Extend now to avoid a fine.",
+                 body: "\(zoneText) — your session has ended. Extend now to avoid a fine.",
                  at: expiresAt,
                  category: CategoryID.expiry)
     }

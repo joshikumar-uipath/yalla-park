@@ -143,7 +143,8 @@ struct SettingsView: View {
                                                       startedAt: demo.startedAt,
                                                       expiresAt: demo.expiresAt)
                             NotificationManager.shared.scheduleExpiryReminders(
-                                zone: demo.zoneCode, expiresAt: demo.expiresAt)
+                                zoneText: zoneLabel(demo.zoneCode, operator: .parkin),
+                                expiresAt: demo.expiresAt)
                         }
                         Button("Clear all sessions", role: .destructive) {
                             for session in sessions { modelContext.delete(session) }

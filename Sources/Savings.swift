@@ -314,6 +314,7 @@ enum InterventionLog {
     /// A confirmed payment resolves fired morning/nag interventions for that zone.
     /// At most one becomes decisive per session — the most recently fired wins.
     static func resolvePayment(zone: String, sessionID: UUID, at paidAt: Date,
+                               fineAED: Decimal = ParkinRules.assumedFineAED,
                                in context: ModelContext) {
         let candidates = pendingEvents(in: context)
             .filter { ($0.kind == .morningFreeToPaid || $0.kind == .unpaidNag)
@@ -328,7 +329,7 @@ enum InterventionLog {
             if !awarded, InterventionResolver.isDecisive(
                 firedAt: event.firedAt, deadline: event.deadline, actionAt: paidAt) {
                 event.decisive = true
-                event.estimatedFineAvoidedAED = ParkinRules.assumedFineAED
+                event.estimatedFineAvoidedAED = fineAED
                 awarded = true
             }
         }
@@ -379,6 +380,7 @@ enum InterventionLog {
 
     /// An extension resolves fired expiry warnings for that session.
     static func resolveExtend(sessionID: UUID, at extendedAt: Date,
+                              fineAED: Decimal = ParkinRules.assumedFineAED,
                               in context: ModelContext) {
         let candidates = pendingEvents(in: context)
             .filter { $0.kind == .expiryWarning
@@ -391,7 +393,7 @@ enum InterventionLog {
             if !awarded, InterventionResolver.isDecisive(
                 firedAt: event.firedAt, deadline: event.deadline, actionAt: extendedAt) {
                 event.decisive = true
-                event.estimatedFineAvoidedAED = ParkinRules.assumedFineAED
+                event.estimatedFineAvoidedAED = fineAED
                 awarded = true
             }
         }

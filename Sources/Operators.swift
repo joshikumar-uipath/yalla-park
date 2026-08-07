@@ -45,7 +45,18 @@ struct PlateProfile: Equatable {
 
     /// Parkonic 6670 style: emirate code fused to the letters, number spaced
     /// ("DXBBB 60925") — field-verified against a real Parkonic ticket.
+    /// Mawaqif (AUH 3009) writes the plate the same way: "DXBA 12345".
     var parkonicPlate: String { "\(emirate.rawValue)\(letters) \(number)" }
+
+    /// Fully spaced style (Ajman 5155, Fujairah 3009): "DXB BB 60925".
+    /// Letterless plates collapse cleanly to "DXB 60925".
+    var spacedPlate: String {
+        letters.isEmpty ? "\(emirate.rawValue) \(number)"
+                        : "\(emirate.rawValue) \(letters) \(number)"
+    }
+
+    /// Sharjah 5566 style: no plate letters at all — "DXB 60925".
+    var sharjahPlate: String { "\(emirate.rawValue) \(number)" }
 
     /// Parse a legacy single-string plate ("A44821", "BB 60925") into parts.
     static func parseLegacy(_ raw: String) -> (letters: String, number: String) {
@@ -74,14 +85,46 @@ enum PlateStore {
     }
 }
 
+/// What the zone field means for a given operator.
+enum ZoneStyle {
+    case community   // Parkin: number from GPS + letter off the sign (318C)
+    case pZone       // Parkonic: whole code off the pole sign (P105)
+    case tier        // Mawaqif: S (standard) or P (premium) kerb — no zones
+    case none        // Sharjah / Ajman / Fujairah: one SMS covers the emirate
+}
+
+/// How an active session gets longer.
+enum ExtendMethod: Equatable {
+    case resendPayment        // send the full payment SMS again
+    case reply(String)        // prefill a bare "Y" / "E" to the operator
+}
+
 enum ParkingOperator: String, Codable, CaseIterable {
     case parkin
     case parkonic
+    case mawaqif    // Abu Dhabi
+    case sharjah
+    case ajman
+    case fujairah
 
     var label: String {
         switch self {
         case .parkin: return "RTA Parkin"
         case .parkonic: return "Parkonic"
+        case .mawaqif: return "Mawaqif"
+        case .sharjah: return "Sharjah Parking"
+        case .ajman: return "Ajman Parking"
+        case .fujairah: return "Fujairah Parking"
+        }
+    }
+
+    var regionLabel: String {
+        switch self {
+        case .parkin, .parkonic: return "Dubai"
+        case .mawaqif: return "Abu Dhabi"
+        case .sharjah: return "Sharjah"
+        case .ajman: return "Ajman"
+        case .fujairah: return "Fujairah"
         }
     }
 
@@ -89,6 +132,56 @@ enum ParkingOperator: String, Codable, CaseIterable {
         switch self {
         case .parkin: return ParkinRules.smsNumber
         case .parkonic: return ParkonicRules.smsNumber
+        case .mawaqif, .fujairah: return "3009"
+        case .sharjah: return "5566"
+        case .ajman: return "5155"
+        }
+    }
+
+    var zoneStyle: ZoneStyle {
+        switch self {
+        case .parkin: return .community
+        case .parkonic: return .pZone
+        case .mawaqif: return .tier
+        case .sharjah, .ajman, .fujairah: return .none
+        }
+    }
+
+    var extendMethod: ExtendMethod {
+        switch self {
+        case .parkin, .sharjah: return .resendPayment
+        case .parkonic, .ajman: return .reply("Y")
+        case .mawaqif, .fujairah: return .reply("E")
+        }
+    }
+
+    /// Longest single SMS purchase the operator accepts.
+    var maxHoursPerSMS: Int {
+        switch self {
+        case .ajman: return 1     // one hour at a time; extend by replying Y
+        case .sharjah: return 5
+        default: return 24
+        }
+    }
+
+    /// Rough AED/hour for the pay button. Nil = unpublished (Parkonic) — the
+    /// UI shows no price and lets the operator's reply SMS state the fee.
+    func estimatedRateAED(zone: String) -> Int? {
+        switch self {
+        case .parkin: return nil  // callers use ParkinRules.estimatedRateAED (kind-aware)
+        case .parkonic: return nil
+        case .mawaqif: return zone.uppercased() == "P" ? 3 : 2
+        case .sharjah, .ajman, .fujairah: return 2
+        }
+    }
+
+    /// Estimated value of one avoided fine for the savings ledger — always
+    /// presented with "~". Regional fine scales differ.
+    var assumedFineAED: Decimal {
+        switch self {
+        case .parkin, .parkonic: return ParkinRules.assumedFineAED  // 150
+        case .mawaqif: return 200
+        case .sharjah, .ajman, .fujairah: return 100
         }
     }
 
@@ -98,8 +191,33 @@ enum ParkingOperator: String, Codable, CaseIterable {
             return ParkinRules.smsBody(plate: plate.parkinPlate, zone: zone, hours: hours)
         case .parkonic:
             return ParkonicRules.smsBody(plate: plate, zone: zone, hours: hours)
+        case .mawaqif:
+            // "DXBA 12345 S 1" — plate fused like Parkonic, then S/P tier.
+            let tier = zone.uppercased() == "P" ? "P" : "S"
+            return "\(plate.parkonicPlate) \(tier) \(hours)"
+        case .sharjah:
+            // "DXB 60925 2" — no letters, no zones (user-supplied format;
+            // verify with one real payment before relying on it).
+            return "\(plate.sharjahPlate) \(hours)"
+        case .ajman, .fujairah:
+            // "DXB BB 60925 1" — fully spaced.
+            return "\(plate.spacedPlate) \(hours)"
         }
     }
+}
+
+/// Operator-aware zone label (app target only — widgets use the 1-arg form
+/// in Theme.swift). Zone-less operators show their name instead of a code.
+func zoneLabel(_ code: String, operator parkingOperator: ParkingOperator) -> String {
+    if code.isEmpty {
+        return parkingOperator == .parkin
+            ? String(localized: "via Parkin app")
+            : parkingOperator.label
+    }
+    if parkingOperator == .mawaqif {
+        return code.uppercased() == "P" ? "Mawaqif · Premium" : "Mawaqif · Standard"
+    }
+    return "Zone \(code)"
 }
 
 /// Parkonic domain rules. Like ParkinRules: data, not code — treat every

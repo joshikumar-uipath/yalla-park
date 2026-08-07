@@ -42,7 +42,9 @@ extension Color {
 }
 
 /// Zone display label shared across app + widgets: Parkin-app payments may not
-/// carry a zone code — never render a dangling "Zone ".
+/// carry a zone code — never render a dangling "Zone ". (The app proper uses
+/// the operator-aware overload in Operators.swift; widgets have no operator in
+/// their shared store yet, so they call this form.)
 func zoneLabel(_ code: String) -> String {
     code.isEmpty ? String(localized: "via Parkin app") : "Zone \(code)"
 }

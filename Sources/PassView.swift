@@ -89,15 +89,28 @@ struct PassScreen: View {
 
     @State private var showComposer = false
     @State private var showConfirm = false
+    @AppStorage("plateEmirate") private var plateEmirate = Emirate.dubai.rawValue
+    @AppStorage("plateLetters") private var plateLetters = ""
+    @AppStorage("plateNumber") private var plateNumber = ""
 
+    /// Extends follow the session's operator: bare "Y"/"E" replies for
+    /// Parkonic/Ajman/Mawaqif/Fujairah, a full re-send for Parkin/Sharjah.
     private var extendBody: String {
-        ParkinRules.smsBody(plate: session.plate, zone: session.zoneCode, hours: 1)
+        switch session.parkingOperator.extendMethod {
+        case .reply(let reply):
+            return reply
+        case .resendPayment:
+            let profile = PlateProfile(emirate: Emirate(rawValue: plateEmirate) ?? .dubai,
+                                       letters: plateLetters, number: plateNumber)
+            return session.parkingOperator.smsBody(
+                plate: profile, zone: session.zoneCode, hours: 1)
+        }
     }
 
     var body: some View {
         PassView(session: session, onExtend: startExtend, onClose: onClose)
             .sheet(isPresented: $showComposer, onDismiss: { showConfirm = true }) {
-                MessageComposer(recipients: [ParkinRules.smsNumber], body: extendBody) {
+                MessageComposer(recipients: [session.parkingOperator.smsNumber], body: extendBody) {
                     showComposer = false
                 }
                 .ignoresSafeArea()
@@ -105,11 +118,13 @@ struct PassScreen: View {
             .sheet(isPresented: $showConfirm) {
                 ConfirmPaidSheet(
                     smsBody: extendBody,
+                    parkingOperator: session.parkingOperator,
                     onConfirm: {
                         showConfirm = false
                         session.extend()
                         NotificationManager.shared.scheduleExpiryReminders(
-                            zone: session.zoneCode, expiresAt: session.expiresAt)
+                            zoneText: zoneLabel(session.zoneCode, operator: session.parkingOperator),
+                            expiresAt: session.expiresAt)
                         LiveActivityManager.update(startedAt: session.startedAt,
                                                    expiresAt: session.expiresAt)
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -152,7 +167,7 @@ struct PassCard: View {
                     Text("DXB Park")
                         .font(.system(size: 14, weight: .semibold))
                     Spacer()
-                    Text(zoneLabel(session.zoneCode))
+                    Text(zoneLabel(session.zoneCode, operator: session.parkingOperator))
                         .font(.system(size: 14, weight: .semibold))
                         .opacity(0.92)
                 }
