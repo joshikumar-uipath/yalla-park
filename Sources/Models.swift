@@ -16,8 +16,14 @@ final class Session {
     var extendedCount: Int
     /// Paid through the Parkin app (not SMS) — extends go back there too.
     var paidViaParkinApp: Bool = false
+    /// Which operator took the payment (additive; nil = Parkin, pre-0.6 data).
+    var operatorRaw: String?
 
     var zoneKind: ZoneKind { ZoneKind(rawValue: zoneKindRaw) ?? .standard }
+    var parkingOperator: ParkingOperator {
+        get { operatorRaw.flatMap(ParkingOperator.init(rawValue:)) ?? .parkin }
+        set { operatorRaw = newValue.rawValue }
+    }
 
     init(plate: String, zoneCode: String, kind: ZoneKind, durationHours: Int, startedAt: Date = .now) {
         self.id = UUID()
@@ -73,8 +79,14 @@ final class Spot {
     var timesParked: Int
     var lastParkedAt: Date
     var designationRaw: String?
+    /// Operator remembered for this place (additive; nil = Parkin).
+    var operatorRaw: String?
 
     var zoneKind: ZoneKind { ZoneKind(rawValue: zoneKindRaw) ?? .standard }
+    var parkingOperator: ParkingOperator {
+        get { operatorRaw.flatMap(ParkingOperator.init(rawValue:)) ?? .parkin }
+        set { operatorRaw = newValue.rawValue }
+    }
     var designation: SpotDesignation? {
         get { designationRaw.flatMap(SpotDesignation.init(rawValue:)) }
         set { designationRaw = newValue?.rawValue }

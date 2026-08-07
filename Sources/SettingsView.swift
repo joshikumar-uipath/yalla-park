@@ -3,6 +3,9 @@ import SwiftData
 
 struct SettingsView: View {
     @AppStorage("plate") private var plate = ""
+    @AppStorage("plateEmirate") private var plateEmirate = Emirate.dubai.rawValue
+    @AppStorage("plateLetters") private var plateLetters = ""
+    @AppStorage("plateNumber") private var plateNumber = ""
     @AppStorage("defaultHours") private var defaultHours = 1
     @AppStorage("debugForcePaid") private var debugForcePaid = false
     @AppStorage("remindMorning") private var remindMorning = true
@@ -16,18 +19,49 @@ struct SettingsView: View {
 
     private var isTestBuild: Bool { DemoData.isTestBuild }
 
+    private var plateProfile: PlateProfile {
+        PlateProfile(emirate: Emirate(rawValue: plateEmirate) ?? .dubai,
+                     letters: plateLetters, number: plateNumber)
+    }
+
+    /// The legacy single-string key stays in sync (Parkin format) — sessions,
+    /// widget, and older code paths keep reading it.
+    private func syncLegacyPlate() {
+        plate = plateProfile.parkinPlate
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("e.g. A44821", text: $plate)
+                    Picker("Emirate", selection: $plateEmirate) {
+                        ForEach(Emirate.allCases) { emirate in
+                            Text("\(emirate.label) · \(emirate.rawValue)").tag(emirate.rawValue)
+                        }
+                    }
+                    TextField("Letters — e.g. BB", text: $plateLetters)
                         .textInputAutocapitalization(.characters)
                         .autocorrectionDisabled()
                         .font(.system(size: 17, weight: .semibold))
+                        .onChange(of: plateLetters) {
+                            plateLetters = plateLetters.uppercased().filter(\.isLetter)
+                            syncLegacyPlate()
+                        }
+                    TextField("Number — e.g. 60925", text: $plateNumber)
+                        .keyboardType(.numberPad)
+                        .font(.system(size: 17, weight: .semibold))
+                        .onChange(of: plateNumber) {
+                            plateNumber = plateNumber.filter(\.isNumber)
+                            syncLegacyPlate()
+                        }
                 } header: {
-                    Text("Plate number")
+                    Text("Your plate")
                 } footer: {
-                    Text("Dubai plates only in this version — exactly as you'd text it to 7275, e.g. A44821.")
+                    if plateNumber.isEmpty {
+                        Text("Each operator writes your plate its own way — we format it for you.")
+                    } else {
+                        Text("Texts as \(plateProfile.parkinPlate) to Parkin (7275) · \(plateProfile.parkonicPlate) to Parkonic (6670).")
+                    }
                 }
 
                 Section("Default duration") {
@@ -87,12 +121,13 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent("Pay by SMS", value: ParkinRules.smsNumber)
+                    LabeledContent("RTA Parkin SMS", value: ParkinRules.smsNumber)
+                    LabeledContent("Parkonic SMS", value: ParkonicRules.smsNumber)
                     LabeledContent("Carrier fee", value: "AED \(String(format: "%.2f", ParkinRules.smsCarrierFeeAED)) per SMS")
                 } header: {
                     Text("How it works")
                 } footer: {
-                    Text("Your location stays on this device. No account, no server. We pre-fill your own SMS to Parkin — we never touch money and never mark a session paid unless you confirm it.")
+                    Text("Your location stays on this device. No account, no server. We pre-fill your own SMS to the right operator — Parkin for RTA zones, Parkonic for P-zones (JVC, DSO, The Gardens) — and never mark a session paid unless you confirm it. \(ParkonicRules.simNote)")
                 }
 
                 if isTestBuild {
