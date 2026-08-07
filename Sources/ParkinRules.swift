@@ -32,8 +32,11 @@ enum ParkinRules {
     static let parkinAppScheme = "parkin://"
     /// From parkin.ae's AASA (bundle com.parkin.parkinapp): /clip* is a
     /// universal link — routes into the full app when installed, or their
-    /// instant App Clip pay flow when not.
+    /// instant App Clip pay flow when not. Field reality (build 44): iOS can
+    /// refuse the www link even with the app installed (their app may only
+    /// declare the apex domain), so both hosts are tried before any fallback.
     static let parkinUniversalLink = "https://www.parkin.ae/clip"
+    static let parkinUniversalLinkApex = "https://parkin.ae/clip"
     static let parkinAppStoreURL = "https://apps.apple.com/ae/app/parkin/id6657993734"
     static let smsNumber = "7275"
     static let whatsappNumber = "971588009090" // Parkin "Mahboub" chatbot, secondary path

@@ -1186,15 +1186,26 @@ struct HomeView: View {
         if let scheme = URL(string: ParkinRules.parkinAppScheme),
            UIApplication.shared.canOpenURL(scheme) {
             UIApplication.shared.open(scheme)
-        } else if let universal = URL(string: ParkinRules.parkinUniversalLink) {
-            // Their AASA routes /clip* into the app (or its App Clip). Only if
-            // iOS can't hand it to the app do we fall back to the store page.
-            UIApplication.shared.open(universal, options: [.universalLinksOnly: true]) { opened in
-                if !opened, let store = URL(string: ParkinRules.parkinAppStoreURL) {
-                    UIApplication.shared.open(store)
-                }
+            return
+        }
+        // App-routing chain (field-driven, build 45): iOS refused the www
+        // universal link on a device WITH Parkin installed — likely their
+        // app declares only the apex domain — so try apex first, then www.
+        // Last resort is the /clip page in Safari: their site's open-in-app
+        // banner or instant App Clip pay flow, never a dead App Store page
+        // when the app is already installed.
+        let apex = URL(string: ParkinRules.parkinUniversalLinkApex)
+        let www = URL(string: ParkinRules.parkinUniversalLink)
+        func tryOpen(_ candidates: [URL], appOnly: Bool) {
+            guard let url = candidates.first else {
+                if let page = www { UIApplication.shared.open(page) }
+                return
+            }
+            UIApplication.shared.open(url, options: appOnly ? [.universalLinksOnly: true] : [:]) { opened in
+                if !opened { tryOpen(Array(candidates.dropFirst()), appOnly: appOnly) }
             }
         }
+        tryOpen([apex, www].compactMap { $0 }, appOnly: true)
     }
 
     private func confirmPaid() {
