@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Charts
+import MapKit
 
 /// The savings surface. Money figures come exclusively from decisive
 /// InterventionEvents (the honest ledger); activity is counted, never priced.
@@ -204,7 +205,7 @@ struct SavingsLedgerView: View {
                 sectionCap("Where it came from — literally")
                 StreetMapCard()
 
-                sectionCap("The app had your back")
+                sectionCap("The app had your back — the coin tray")
                 activityCard()
 
                 Text("Estimates from the reminder ledger — likely, never certain.")
@@ -278,37 +279,44 @@ struct SavingsLedgerView: View {
         .transition(.opacity)
     }
 
-    /// "The app had your back" as a signage tally: stencil labels with dotted
-    /// leader lines running to painted counts.
+    /// "The app had your back" as the coin tray: one coin per five events,
+    /// stacks you can count at a glance.
     private func activityCard() -> some View {
         let counts = ActivityLog.counts(in: modelContext)
         let items: [(String, ActivityKind)] = [
-            ("Parkin hand-offs", .parkinOpened),
-            ("SMS payments", .smsPayStarted),
-            ("False triggers caught", .notParkingDismissed),
-            ("Quiet at Home and Office", .quietArrival),
-            ("Free-spot arrivals", .freeArrival),
+            ("Quiet", .quietArrival),
+            ("SMS", .smsPayStarted),
+            ("Parkin", .parkinOpened),
+            ("Free", .freeArrival),
+            ("Triggers", .notParkingDismissed),
         ].filter { (counts[$0.1] ?? 0) > 0 }
-        return AsphaltCard(theme: theme) {
-            VStack(spacing: 13) {
-                ForEach(items, id: \.0) { item in
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        Text(item.0.uppercased())
-                            .font(.system(size: 11, weight: .bold))
-                            .kerning(1.2)
-                            .foregroundStyle(theme.paint.opacity(0.85))
-                            .layoutPriority(1)
-                        DashedRule(color: theme.paint.opacity(0.25), thickness: 1.5)
-                            .offset(y: -2)
-                        Text("\(counts[item.1] ?? 0)")
-                            .font(.system(size: 16, weight: .heavy))
-                            .monospacedDigit()
-                            .foregroundStyle(theme.paint)
-                            .layoutPriority(1)
+        return HStack(alignment: .bottom, spacing: 18) {
+            ForEach(items, id: \.0) { item in
+                let count = counts[item.1] ?? 0
+                VStack(spacing: 5) {
+                    VStack(spacing: 2) {
+                        ForEach(0..<max(1, min(10, (count + 4) / 5)), id: \.self) { _ in
+                            Capsule()
+                                .fill(LinearGradient(colors: [Color(hex: 0xF5CF7A), Color(hex: 0xDFA93C)],
+                                                     startPoint: .top, endPoint: .bottom))
+                                .overlay(Capsule().strokeBorder(Color(hex: 0xB9852A), lineWidth: 1.4))
+                                .frame(width: 27, height: 8)
+                        }
                     }
+                    Text("\(count)")
+                        .font(.system(size: 15, weight: .heavy))
+                        .monospacedDigit()
+                        .foregroundStyle(theme.pageText)
+                    Text(item.0.uppercased())
+                        .font(.system(size: 8.5, weight: .bold))
+                        .kerning(0.6)
+                        .foregroundStyle(theme.secCap)
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 6)
+        .accessibilityLabel("Coin tray of activity counts")
     }
 
     private func receiptTitle(for event: InterventionEvent) -> String {
@@ -321,166 +329,86 @@ struct SavingsLedgerView: View {
     }
 }
 
-// MARK: - UAE map — "Where it came from", literally (W2, v2)
+// MARK: - Interactive savings map (MapKit — same engine as the Home screen)
 
-/// Demo pins for the presentation; re-wire to ledger zone data before release.
-private struct MapCallout {
+/// Demo pins at the real coordinates of the demo zones; re-wire to ledger
+/// zone data before release.
+private struct SavedPlace: Identifiable {
+    let id = UUID()
     let title: String
     let sub: String
     let color: Color
-    let tagX: CGFloat, tagY: CGFloat      // callout box position
-    let dotX: CGFloat, dotY: CGFloat      // anchor near Dubai
+    let coordinate: CLLocationCoordinate2D
 }
 
 private struct StreetMapCard: View {
-    private let callouts: [MapCallout] = [
-        MapCallout(title: "318C · Karama", sub: "~1,800 · 12 saves",
-                   color: Color(hex: 0xD6431A), tagX: 0.30, tagY: 0.10, dotX: 0.745, dotY: 0.235),
-        MapCallout(title: "382F · Al Sufouh", sub: "~1,350 · 9 saves",
-                   color: Color(hex: 0xC07F10), tagX: 0.22, tagY: 0.38, dotX: 0.72, dotY: 0.26),
-        MapCallout(title: "365A · Al Qouz", sub: "~1,350 · 9 saves",
-                   color: Color(hex: 0xE23350), tagX: 0.40, tagY: 0.66, dotX: 0.75, dotY: 0.285),
-        MapCallout(title: "334B", sub: "−150 · the fine",
-                   color: Color(hex: 0xB23A12), tagX: 0.84, tagY: 0.60, dotX: 0.775, dotY: 0.255),
+    private let places: [SavedPlace] = [
+        SavedPlace(title: "318C · Karama", sub: "~1,800 · 12 saves",
+                   color: Color(hex: 0xD6431A),
+                   coordinate: CLLocationCoordinate2D(latitude: 25.2478, longitude: 55.3061)),
+        SavedPlace(title: "382F · Al Sufouh", sub: "~1,350 · 9 saves",
+                   color: Color(hex: 0xC07F10),
+                   coordinate: CLLocationCoordinate2D(latitude: 25.1124, longitude: 55.1610)),
+        SavedPlace(title: "365A · Al Qouz", sub: "~1,350 · 9 saves",
+                   color: Color(hex: 0xE23350),
+                   coordinate: CLLocationCoordinate2D(latitude: 25.1370, longitude: 55.2320)),
+        SavedPlace(title: "334B · Al Satwa", sub: "−150 · the fine",
+                   color: Color(hex: 0xB23A12),
+                   coordinate: CLLocationCoordinate2D(latitude: 25.2260, longitude: 55.2720)),
     ]
 
+    private let home = CLLocationCoordinate2D(latitude: 25.0310, longitude: 55.1420)
+
     var body: some View {
-        GeometryReader { geo in
-            let width = geo.size.width
-            let height = geo.size.height
-            ZStack {
-                // the Gulf
-                Color(hex: 0xD5E2DF)
-                Text("THE GULF")
-                    .font(.system(size: 10, weight: .semibold))
-                    .italic()
-                    .kerning(2)
-                    .foregroundStyle(Color(hex: 0x93ACA8))
-                    .position(x: width * 0.30, y: height * 0.30)
-
-                // the country
-                UAEShape()
-                    .fill(Color(hex: 0xEDE3C9))
-                UAEShape()
-                    .stroke(Color(hex: 0xC9BC9C), lineWidth: 1.5)
-
-                // city anchors
-                Circle().fill(Color(hex: 0x9A8D7A)).frame(width: 5, height: 5)
-                    .position(x: width * 0.59, y: height * 0.47)
-                Text("ABU DHABI")
-                    .font(.system(size: 7.5, weight: .bold))
-                    .kerning(0.8)
-                    .foregroundStyle(Color(hex: 0x9A8D7A))
-                    .position(x: width * 0.59, y: height * 0.525)
-                Text("DUBAI")
-                    .font(.system(size: 8.5, weight: .heavy))
-                    .kerning(1)
-                    .foregroundStyle(Color(hex: 0x6d6455))
-                    .position(x: width * 0.815, y: height * 0.31)
-
-                // leader lines
-                ForEach(callouts.indices, id: \.self) { index in
-                    let callout = callouts[index]
-                    Path { path in
-                        path.move(to: CGPoint(x: width * callout.tagX, y: height * callout.tagY))
-                        path.addLine(to: CGPoint(x: width * callout.dotX, y: height * callout.dotY))
+        Map(initialPosition: .region(MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 25.16, longitude: 55.24),
+            span: MKCoordinateSpan(latitudeDelta: 0.30, longitudeDelta: 0.30)))) {
+            ForEach(places) { place in
+                Annotation(place.title, coordinate: place.coordinate) {
+                    VStack(spacing: 3) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(place.title)
+                                .font(.system(size: 10.5, weight: .heavy))
+                            Text(place.sub)
+                                .font(.system(size: 9, weight: .bold))
+                                .opacity(0.92)
+                        }
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .padding(.vertical, 5)
+                        .padding(.horizontal, 9)
+                        .background(place.color, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .shadow(color: .black.opacity(0.25), radius: 5, y: 3)
+                        Circle()
+                            .fill(place.color)
+                            .frame(width: 10, height: 10)
+                            .overlay(Circle().strokeBorder(.white, lineWidth: 2.5))
+                            .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
                     }
-                    .stroke(callout.color.opacity(0.55), lineWidth: 1.5)
                 }
-
-                // save dots clustered on Dubai
-                ForEach(callouts.indices, id: \.self) { index in
-                    let callout = callouts[index]
-                    Circle()
-                        .fill(callout.color)
-                        .frame(width: 9, height: 9)
-                        .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-                        .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
-                        .position(x: width * callout.dotX, y: height * callout.dotY)
-                }
-
-                // callout tags
-                ForEach(callouts.indices, id: \.self) { index in
-                    let callout = callouts[index]
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(callout.title)
-                            .font(.system(size: 10.5, weight: .heavy))
-                        Text(callout.sub)
-                            .font(.system(size: 9, weight: .bold))
-                            .opacity(0.92)
-                    }
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .padding(.vertical, 5)
-                    .padding(.horizontal, 9)
-                    .background(callout.color, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .shadow(color: .black.opacity(0.25), radius: 5, y: 3)
-                    .position(x: width * callout.tagX, y: height * callout.tagY)
-                }
-
+                .annotationTitles(.hidden)
+            }
+            Annotation("Home", coordinate: home) {
                 Text("HOME · 48 QUIET")
                     .font(.system(size: 9, weight: .heavy))
                     .kerning(0.6)
                     .foregroundStyle(Color(hex: 0x857A68))
                     .padding(.vertical, 4)
                     .padding(.horizontal, 8)
-                    .background(Color(hex: 0xF0EBE1).opacity(0.9),
+                    .background(Color(hex: 0xF0EBE1).opacity(0.92),
                                 in: RoundedRectangle(cornerRadius: 6))
-                    .position(x: width * 0.30, y: height * 0.88)
+                    .shadow(color: .black.opacity(0.15), radius: 3, y: 2)
             }
+            .annotationTitles(.hidden)
         }
-        .frame(height: 300)
+        .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+        .frame(height: 320)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .accessibilityLabel("Map of the UAE with savings pinned at Dubai: Karama about 1,800, Al Sufouh about 1,350, Al Qouz about 1,350, and the fine at 334B")
+        .accessibilityLabel("Interactive map of savings: Karama about 1,800, Al Sufouh about 1,350, Al Qouz about 1,350, the fine at Al Satwa, and home marked quiet")
     }
 }
 
-/// A simplified UAE silhouette — Gulf coast up to the Musandam horn, east
-/// coast down past Fujairah, straight desert borders. Hand-traced, no SDK.
-private struct UAEShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        let points: [(CGFloat, CGFloat)] = [
-            (0.03, 0.57), (0.14, 0.60), (0.24, 0.56), (0.34, 0.545),
-            (0.44, 0.51), (0.52, 0.50), (0.59, 0.47), (0.66, 0.40),
-            (0.72, 0.31), (0.76, 0.24), (0.79, 0.19), (0.85, 0.135),
-            (0.89, 0.10), (0.94, 0.05), (0.97, 0.03),
-            (0.98, 0.14), (0.97, 0.28), (0.91, 0.34), (0.89, 0.53),
-            (0.85, 0.54), (0.82, 0.97), (0.55, 0.945), (0.22, 0.93),
-            (0.02, 0.63),
-        ]
-        var path = Path()
-        path.move(to: CGPoint(x: rect.width * points[0].0, y: rect.height * points[0].1))
-        for point in points.dropFirst() {
-            path.addLine(to: CGPoint(x: rect.width * point.0, y: rect.height * point.1))
-        }
-        path.closeSubpath()
-        return path
-    }
-}
-
-// MARK: - Asphalt panels (sections drawn in the lot's own material)
-
-private struct AsphaltCard<Content: View>: View {
-    let theme: SavingsTheme
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        content
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                ZStack {
-                    LinearGradient(colors: [theme.asphaltA, theme.asphaltB],
-                                   startPoint: .top, endPoint: .bottom)
-                    Ellipse().fill(.black.opacity(0.14))
-                        .frame(width: 80, height: 40).offset(x: 80, y: -30)
-                    Ellipse().fill(.black.opacity(0.10))
-                        .frame(width: 60, height: 30).offset(x: -90, y: 40)
-                }
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-}
+// MARK: - Kerb strip (used by receipts)
 
 /// Yellow-black hazard kerb with a stencil label — the fine's road furniture.
 private struct KerbStrip: View {
