@@ -201,8 +201,8 @@ struct SavingsLedgerView: View {
                     receiptsCard(forMonth: month)
                 }
 
-                sectionCap("Where it came from")
-                sourcesCard()
+                sectionCap("Where it came from — literally")
+                StreetMapCard()
 
                 sectionCap("The app had your back")
                 activityCard()
@@ -278,49 +278,6 @@ struct SavingsLedgerView: View {
         .transition(.opacity)
     }
 
-    /// "Where it came from" as road paint: each reminder layer is a painted
-    /// line on asphalt — stencil label, share bar, amount. The fine is a
-    /// yellow-black kerb strip. No icons, no list rows.
-    private func sourcesCard() -> some View {
-        let breakdown = SavingsStats.savesByKind(events: events)
-        let maxAED = breakdown.map(\.savedAED).max() ?? 1
-        return AsphaltCard(theme: theme) {
-            VStack(alignment: .leading, spacing: 16) {
-                ForEach(breakdown, id: \.kind) { entry in
-                    VStack(alignment: .leading, spacing: 7) {
-                        HStack(alignment: .firstTextBaseline) {
-                            Text("\(entry.kind.displayLabel.uppercased()) ×\(entry.saves)")
-                                .font(.system(size: 11, weight: .bold))
-                                .kerning(1.2)
-                                .foregroundStyle(theme.paint.opacity(0.85))
-                            Spacer()
-                            Text("~AED \(formatAED(entry.savedAED))")
-                                .font(.system(size: 14, weight: .bold))
-                                .monospacedDigit()
-                                .foregroundStyle(theme.paint)
-                        }
-                        GeometryReader { geo in
-                            let ratio = maxAED > 0
-                                ? NSDecimalNumber(decimal: entry.savedAED).doubleValue
-                                    / NSDecimalNumber(decimal: maxAED).doubleValue
-                                : 0
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(theme.paint.opacity(0.14))
-                                Capsule().fill(kindColor(entry.kind))
-                                    .frame(width: max(8, geo.size.width * ratio))
-                            }
-                        }
-                        .frame(height: 5)
-                    }
-                }
-                if totals.finesReported > 0 {
-                    KerbStrip(text: "\(totals.finesReported) FINE GOT THROUGH · −\(formatAED(totals.finesReportedAED))")
-                        .padding(.top, 2)
-                }
-            }
-        }
-    }
-
     /// "The app had your back" as a signage tally: stencil labels with dotted
     /// leader lines running to painted counts.
     private func activityCard() -> some View {
@@ -360,6 +317,106 @@ struct SavingsLedgerView: View {
         case .morningFreeToPaid: return "Paid \(zone) before charging began"
         case .unpaidNag: return "Paid \(zone) after the nag"
         case .expiryWarning: return "Extended \(zone) before it lapsed"
+        }
+    }
+}
+
+// MARK: - Street map — "Where it came from", literally (W2)
+
+/// Demo pins for the presentation; re-wire to ledger zone data with the rest
+/// of DemoYear before release.
+private struct ZonePinData {
+    let title: String
+    let sub: String
+    let color: Color
+    let x: CGFloat
+    let y: CGFloat
+}
+
+private struct StreetMapCard: View {
+    private let pins: [ZonePinData] = [
+        ZonePinData(title: "318C · Karama", sub: "~600 · 4 saves",
+                    color: Color(hex: 0xD6431A), x: 0.26, y: 0.18),
+        ZonePinData(title: "382F · Al Sufouh", sub: "~450 · 3 saves",
+                    color: Color(hex: 0xC07F10), x: 0.72, y: 0.44),
+        ZonePinData(title: "365A · Al Qouz", sub: "~450 · 3 saves",
+                    color: Color(hex: 0xE23350), x: 0.28, y: 0.74),
+        ZonePinData(title: "334B", sub: "−150 · the fine",
+                    color: Color(hex: 0xB23A12), x: 0.72, y: 0.82),
+    ]
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                Color(hex: 0xEAE2CF)
+                StreetGrid()
+                    .stroke(Color(hex: 0xDDD3BD), lineWidth: 9)
+                ForEach(pins.indices, id: \.self) { index in
+                    ZonePin(pin: pins[index])
+                        .position(x: geo.size.width * pins[index].x,
+                                  y: geo.size.height * pins[index].y)
+                }
+                Text("HOME · 48 QUIET")
+                    .font(.system(size: 9, weight: .heavy))
+                    .kerning(0.6)
+                    .foregroundStyle(Color(hex: 0x857A68))
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 8)
+                    .background(Color(hex: 0xF0EBE1).opacity(0.85),
+                                in: RoundedRectangle(cornerRadius: 6))
+                    .position(x: geo.size.width * 0.80, y: geo.size.height * 0.08)
+            }
+        }
+        .frame(height: 216)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityLabel("Map of savings by zone: 318C Karama about 600, 382F Al Sufouh about 450, 365A Al Qouz about 450, and the fine at 334B")
+    }
+}
+
+/// A few crossing streets, drawn once — enough map to feel like Dubai,
+/// no map SDK anywhere near it.
+private struct StreetGrid: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let lines: [((CGFloat, CGFloat), (CGFloat, CGFloat))] = [
+            ((0.00, 0.55), (1.00, 0.20)),
+            ((0.12, 1.00), (0.52, 0.00)),
+            ((0.55, 1.00), (1.00, 0.42)),
+            ((0.00, 0.22), (0.34, 0.00)),
+            ((0.30, 1.00), (1.00, 0.72)),
+        ]
+        for line in lines {
+            path.move(to: CGPoint(x: rect.width * line.0.0, y: rect.height * line.0.1))
+            path.addLine(to: CGPoint(x: rect.width * line.1.0, y: rect.height * line.1.1))
+        }
+        return path
+    }
+}
+
+private struct ZonePin: View {
+    let pin: ZonePinData
+
+    var body: some View {
+        VStack(spacing: 3) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(pin.title)
+                    .font(.system(size: 10.5, weight: .heavy))
+                Text(pin.sub)
+                    .font(.system(size: 9, weight: .bold))
+                    .opacity(0.92)
+            }
+            .monospacedDigit()
+            .foregroundStyle(.white)
+            .padding(.vertical, 5)
+            .padding(.horizontal, 9)
+            .background(pin.color, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .shadow(color: .black.opacity(0.25), radius: 5, y: 3)
+
+            Circle()
+                .fill(pin.color)
+                .frame(width: 10, height: 10)
+                .overlay(Circle().strokeBorder(.white, lineWidth: 2.5))
+                .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
         }
     }
 }
