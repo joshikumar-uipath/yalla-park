@@ -39,14 +39,16 @@ enum DemoData {
         for offset in -5...0 {
             guard let month = calendar.date(byAdding: .month, value: offset,
                                             to: currentMonth) else { continue }
-            let sessionCount = 7
-            // 6 saves in each of the 5 completed months = 30 = ~AED 4,500;
+            let sessionCount = 8
+            // 8 saves in each of the 5 completed months = 40 = ~AED 6,000;
             // the in-progress month gets sessions but no saves yet.
-            let saveTarget = offset < 0 ? 6 : 0
+            let saveTarget = offset < 0 ? 8 : 0
 
             for i in 0..<sessionCount {
+                // Day spacing must keep all sessions inside the month even
+                // in February (max day 1 + 7*3 = 22).
                 guard let start = calendar.date(
-                    byAdding: DateComponents(day: 1 + i * 4, hour: 9 + (i % 8)), to: month),
+                    byAdding: DateComponents(day: 1 + i * 3, hour: 9 + (i % 8)), to: month),
                     start < now else { continue }
                 let zone = zones[zoneIndex % zones.count]
                 zoneIndex += 1

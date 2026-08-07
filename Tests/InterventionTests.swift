@@ -287,11 +287,11 @@ final class InterventionTests: XCTestCase {
         let slices = SavingsStats.monthlySaves(events: events, months: 6,
                                                now: now, calendar: calendar)
         XCTAssertEqual(slices.count, 6)
-        // Completed months carry 6 saves each (30 = ~AED 4,500); the
+        // Completed months carry 8 saves each (40 = ~AED 6,000); the
         // in-progress month has sessions but no saves yet.
-        XCTAssertTrue(slices.dropLast().allSatisfy { $0.saves == 6 })
-        XCTAssertEqual(slices.map(\.saves).reduce(0, +), 30)
-        XCTAssertEqual(SavingsStats.totals(in: context, now: now).avoidedAED, 4500)
+        XCTAssertTrue(slices.dropLast().allSatisfy { $0.saves == 8 })
+        XCTAssertEqual(slices.map(\.saves).reduce(0, +), 40)
+        XCTAssertEqual(SavingsStats.totals(in: context, now: now).avoidedAED, 6000)
         let kinds = Set(events.filter(\.decisive).map(\.kind))
         XCTAssertEqual(kinds, Set(InterventionKind.allCases), "all save types present")
         let totals = SavingsStats.totals(in: context, now: now)

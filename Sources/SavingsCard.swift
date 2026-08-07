@@ -137,17 +137,17 @@ private enum DemoYear {
             "Paid Zone %@ after the nag",
             "Extended Zone %@ before it lapsed",
         ]
-        let counts = [4, 3, 5, 3, 4, 5, 3, 3, 0, 0, 0, 0]  // 30 saves = ~AED 4,500
+        let counts = [5, 4, 6, 5, 5, 6, 4, 5, 0, 0, 0, 0]  // 40 saves = ~AED 6,000
         let months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
                       "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
         var all: [[(String, String, String, Bool)]] = []
         for month in 0..<12 {
             var rows: [(String, String, String, Bool)] = []
             let saveCount = counts[month]
-            // Months with 4+ saves fold their last two into one +300 row —
+            // Months with 6 saves fold their last two into one +300 row —
             // two extensions in one stay — so the column doesn't read as a
-            // loop of identical +150s. Sums per month are unchanged.
-            let hasDouble = saveCount >= 4
+            // loop of identical +150s. Every month still shows 4–6 rows.
+            let hasDouble = saveCount >= 6
             let rowCount = hasDouble ? saveCount - 1 : saveCount
             for i in 0..<rowCount {
                 let zone = zones[(month + i * 2) % zones.count]
@@ -271,6 +271,11 @@ struct SavingsLedgerView: View {
 
     private func receiptsCard(forMonth month: Int) -> some View {
         let rows = DemoYear.receipts[month]
+        // Net month total from the rows themselves — the header can never
+        // disagree with the column under it.
+        let total = rows.reduce(0) { sum, row in
+            sum + (Int(row.2.dropFirst()) ?? 0) * (row.3 ? -1 : 1)
+        }
         return StubCard(theme: theme) {
             if rows.isEmpty {
                 Text("Nothing here yet — \(DemoYear.monthNames[month]) is still ahead.")
@@ -278,8 +283,21 @@ struct SavingsLedgerView: View {
                     .foregroundStyle(theme.secCap)
                     .padding(.vertical, 12)
             } else {
+                HStack {
+                    Text("\(DemoYear.monthNames[month].uppercased()) TOTAL")
+                        .font(.system(size: 10.5, weight: .bold))
+                        .kerning(0.8)
+                        .foregroundStyle(theme.secCap)
+                    Spacer()
+                    Text("+\(total.formatted())")
+                        .font(.system(size: 15, weight: .heavy))
+                        .monospacedDigit()
+                        .foregroundStyle(theme.plus)
+                }
+                .padding(.top, 12)
+                .padding(.bottom, 9)
                 ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
-                    if index > 0 { DashedRule(color: theme.stubDash) }
+                    DashedRule(color: theme.stubDash)
                     if row.3 {
                         KerbStrip(text: "\(row.0) · FINE GOT THROUGH · \(row.2)")
                             .padding(.vertical, 9)
@@ -298,19 +316,23 @@ struct SavingsLedgerView: View {
     /// stacks you can count at a glance.
     private func activityCard() -> some View {
         let counts = activityCounts
-        let items: [(String, ActivityKind)] = [
-            ("Quiet", .quietArrival),
-            ("SMS", .smsPayStarted),
-            ("Parkin", .parkinOpened),
-            ("Free", .freeArrival),
-            ("Triggers", .notParkingDismissed),
-        ].filter { (counts[$0.1] ?? 0) > 0 }
-        return HStack(alignment: .bottom, spacing: 18) {
+        // Everything the app did for you, one coin stack each — activity
+        // kinds plus the trips it watched and the saves it landed. Columns
+        // spread edge to edge so the tray reads full.
+        let items: [(String, Int)] = [
+            ("Quiet", counts[.quietArrival] ?? 0),
+            ("Trips", sessions.count),
+            ("Saves", totals.likelySaves),
+            ("SMS", counts[.smsPayStarted] ?? 0),
+            ("Parkin", counts[.parkinOpened] ?? 0),
+            ("Free", counts[.freeArrival] ?? 0),
+            ("Triggers", counts[.notParkingDismissed] ?? 0),
+        ].filter { $0.1 > 0 }
+        return HStack(alignment: .bottom, spacing: 0) {
             ForEach(items, id: \.0) { item in
-                let count = counts[item.1] ?? 0
                 VStack(spacing: 5) {
                     VStack(spacing: 2) {
-                        ForEach(0..<max(1, min(10, (count + 4) / 5)), id: \.self) { _ in
+                        ForEach(0..<max(1, min(10, (item.1 + 4) / 5)), id: \.self) { _ in
                             Capsule()
                                 .fill(LinearGradient(colors: [Color(hex: 0xF5CF7A), Color(hex: 0xDFA93C)],
                                                      startPoint: .top, endPoint: .bottom))
@@ -318,7 +340,7 @@ struct SavingsLedgerView: View {
                                 .frame(width: 27, height: 8)
                         }
                     }
-                    Text("\(count)")
+                    Text("\(item.1)")
                         .font(.system(size: 15, weight: .heavy))
                         .monospacedDigit()
                         .foregroundStyle(theme.pageText)
@@ -327,11 +349,11 @@ struct SavingsLedgerView: View {
                         .kerning(0.6)
                         .foregroundStyle(theme.secCap)
                 }
+                .frame(maxWidth: .infinity)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 6)
-        .accessibilityLabel("Coin tray of activity counts")
+        .frame(maxWidth: .infinity)
+        .accessibilityLabel("Coin tray: trips watched, saves landed, and activity counts")
     }
 
     private func receiptTitle(for event: InterventionEvent) -> String {
@@ -361,23 +383,24 @@ private struct SavedPlace: Identifiable {
 private struct StreetMapCard: View {
     let quietCount: Int
 
-    /// Zone tags use their own warm ramp (not the reminder-kind colors);
-    /// the single dark red stays reserved for the fine.
+    /// One tag color per zone, pulled from the app's own story — brand
+    /// coral, car-fleet green, coin gold — so each pin reads distinct at a
+    /// glance. Dark maroon stays reserved for the fine alone.
     private let places: [SavedPlace] = [
-        SavedPlace(title: "318C · Karama", sub: "~1,800 · 12 saves",
+        SavedPlace(title: "318C · Karama", sub: "~2,400 · 16 saves",
                    color: Color(hex: 0xD6431A),
                    coordinate: CLLocationCoordinate2D(latitude: 25.2478, longitude: 55.3061),
                    tagBelow: false),
         SavedPlace(title: "334B · Al Satwa", sub: "−150 · the fine",
-                   color: Color(hex: 0x8E2C0C),
+                   color: Color(hex: 0x6E1F09),
                    coordinate: CLLocationCoordinate2D(latitude: 25.2260, longitude: 55.2720),
                    tagBelow: true),
-        SavedPlace(title: "365A · Al Qouz", sub: "~1,350 · 9 saves",
-                   color: Color(hex: 0xE8752C),
+        SavedPlace(title: "365A · Al Qouz", sub: "~1,800 · 12 saves",
+                   color: Color(hex: 0x0E7D57),
                    coordinate: CLLocationCoordinate2D(latitude: 25.1370, longitude: 55.2320),
                    tagBelow: false),
-        SavedPlace(title: "382F · Al Sufouh", sub: "~1,350 · 9 saves",
-                   color: Color(hex: 0xC07F10),
+        SavedPlace(title: "382F · Al Sufouh", sub: "~1,800 · 12 saves",
+                   color: Color(hex: 0xB98214),
                    coordinate: CLLocationCoordinate2D(latitude: 25.1124, longitude: 55.1610),
                    tagBelow: true),
     ]
@@ -428,7 +451,7 @@ private struct StreetMapCard: View {
                             pointsOfInterest: .excludingAll, showsTraffic: false))
         .frame(height: 320)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .accessibilityLabel("Interactive map of savings: Karama about 1,800, Al Qouz about 1,350, Al Sufouh about 1,350, the fine at Al Satwa, and home marked quiet with \(quietCount) arrivals")
+        .accessibilityLabel("Interactive map of savings: Karama about 2,400, Al Qouz about 1,800, Al Sufouh about 1,800, the fine at Al Satwa, and home marked quiet with \(quietCount) arrivals")
     }
 
     private func placeDot(_ color: Color) -> some View {
@@ -621,10 +644,6 @@ private struct LotView: View {
                 // as a smudge) and the dotted future bays.
                 Ellipse().fill(.black.opacity(0.16)).frame(width: 90, height: 46).offset(x: -148, y: -56)
                 Ellipse().fill(.black.opacity(0.12)).frame(width: 66, height: 34).offset(x: 60, y: -64)
-                Text("P")
-                    .font(.system(size: 120, weight: .black))
-                    .foregroundStyle(theme.paint.opacity(0.05))
-                    .offset(x: -112, y: -4)
             }
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
