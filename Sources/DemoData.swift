@@ -39,11 +39,14 @@ enum DemoData {
         for offset in -5...0 {
             guard let month = calendar.date(byAdding: .month, value: offset,
                                             to: currentMonth) else { continue }
-            let sessionCount = 3 + (offset + 5) % 3   // 3…5 per month
+            let sessionCount = 7
+            // 6 saves in each of the 5 completed months = 30 = ~AED 4,500;
+            // the in-progress month gets sessions but no saves yet.
+            let saveTarget = offset < 0 ? 6 : 0
 
             for i in 0..<sessionCount {
                 guard let start = calendar.date(
-                    byAdding: DateComponents(day: 2 + i * 5, hour: 9 + i), to: month),
+                    byAdding: DateComponents(day: 1 + i * 4, hour: 9 + (i % 8)), to: month),
                     start < now else { continue }
                 let zone = zones[zoneIndex % zones.count]
                 zoneIndex += 1
@@ -56,8 +59,7 @@ enum DemoData {
                 session.paidViaParkinApp = (i % 3 == 0)
                 context.insert(session)
 
-                // Two saves per month, rotating through all three kinds.
-                if i < 2 {
+                if i < saveTarget {
                     let kinds = InterventionKind.allCases
                     let kind = kinds[(offset + 5 + i) % kinds.count]
                     let fired = start.addingTimeInterval(

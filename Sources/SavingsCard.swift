@@ -136,7 +136,7 @@ private enum DemoYear {
             "Paid Zone %@ after the nag",
             "Extended Zone %@ before it lapsed",
         ]
-        let counts = [7, 6, 8, 6, 7, 8, 6, 7, 0, 0, 0, 0]
+        let counts = [4, 3, 5, 3, 4, 5, 3, 3, 0, 0, 0, 0]  // 30 saves = ~AED 4,500
         let months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
                       "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
         var all: [[(String, String, String, Bool)]] = []
@@ -321,103 +321,140 @@ struct SavingsLedgerView: View {
     }
 }
 
-// MARK: - Street map — "Where it came from", literally (W2)
+// MARK: - UAE map — "Where it came from", literally (W2, v2)
 
-/// Demo pins for the presentation; re-wire to ledger zone data with the rest
-/// of DemoYear before release.
-private struct ZonePinData {
+/// Demo pins for the presentation; re-wire to ledger zone data before release.
+private struct MapCallout {
     let title: String
     let sub: String
     let color: Color
-    let x: CGFloat
-    let y: CGFloat
+    let tagX: CGFloat, tagY: CGFloat      // callout box position
+    let dotX: CGFloat, dotY: CGFloat      // anchor near Dubai
 }
 
 private struct StreetMapCard: View {
-    private let pins: [ZonePinData] = [
-        ZonePinData(title: "318C · Karama", sub: "~600 · 4 saves",
-                    color: Color(hex: 0xD6431A), x: 0.26, y: 0.18),
-        ZonePinData(title: "382F · Al Sufouh", sub: "~450 · 3 saves",
-                    color: Color(hex: 0xC07F10), x: 0.72, y: 0.44),
-        ZonePinData(title: "365A · Al Qouz", sub: "~450 · 3 saves",
-                    color: Color(hex: 0xE23350), x: 0.28, y: 0.74),
-        ZonePinData(title: "334B", sub: "−150 · the fine",
-                    color: Color(hex: 0xB23A12), x: 0.72, y: 0.82),
+    private let callouts: [MapCallout] = [
+        MapCallout(title: "318C · Karama", sub: "~1,800 · 12 saves",
+                   color: Color(hex: 0xD6431A), tagX: 0.30, tagY: 0.10, dotX: 0.745, dotY: 0.235),
+        MapCallout(title: "382F · Al Sufouh", sub: "~1,350 · 9 saves",
+                   color: Color(hex: 0xC07F10), tagX: 0.22, tagY: 0.38, dotX: 0.72, dotY: 0.26),
+        MapCallout(title: "365A · Al Qouz", sub: "~1,350 · 9 saves",
+                   color: Color(hex: 0xE23350), tagX: 0.40, tagY: 0.66, dotX: 0.75, dotY: 0.285),
+        MapCallout(title: "334B", sub: "−150 · the fine",
+                   color: Color(hex: 0xB23A12), tagX: 0.84, tagY: 0.60, dotX: 0.775, dotY: 0.255),
     ]
 
     var body: some View {
         GeometryReader { geo in
+            let width = geo.size.width
+            let height = geo.size.height
             ZStack {
-                Color(hex: 0xEAE2CF)
-                StreetGrid()
-                    .stroke(Color(hex: 0xDDD3BD), lineWidth: 9)
-                ForEach(pins.indices, id: \.self) { index in
-                    ZonePin(pin: pins[index])
-                        .position(x: geo.size.width * pins[index].x,
-                                  y: geo.size.height * pins[index].y)
+                // the Gulf
+                Color(hex: 0xD5E2DF)
+                Text("THE GULF")
+                    .font(.system(size: 10, weight: .semibold))
+                    .italic()
+                    .kerning(2)
+                    .foregroundStyle(Color(hex: 0x93ACA8))
+                    .position(x: width * 0.30, y: height * 0.30)
+
+                // the country
+                UAEShape()
+                    .fill(Color(hex: 0xEDE3C9))
+                UAEShape()
+                    .stroke(Color(hex: 0xC9BC9C), lineWidth: 1.5)
+
+                // city anchors
+                Circle().fill(Color(hex: 0x9A8D7A)).frame(width: 5, height: 5)
+                    .position(x: width * 0.59, y: height * 0.47)
+                Text("ABU DHABI")
+                    .font(.system(size: 7.5, weight: .bold))
+                    .kerning(0.8)
+                    .foregroundStyle(Color(hex: 0x9A8D7A))
+                    .position(x: width * 0.59, y: height * 0.525)
+                Text("DUBAI")
+                    .font(.system(size: 8.5, weight: .heavy))
+                    .kerning(1)
+                    .foregroundStyle(Color(hex: 0x6d6455))
+                    .position(x: width * 0.815, y: height * 0.31)
+
+                // leader lines
+                ForEach(callouts.indices, id: \.self) { index in
+                    let callout = callouts[index]
+                    Path { path in
+                        path.move(to: CGPoint(x: width * callout.tagX, y: height * callout.tagY))
+                        path.addLine(to: CGPoint(x: width * callout.dotX, y: height * callout.dotY))
+                    }
+                    .stroke(callout.color.opacity(0.55), lineWidth: 1.5)
                 }
+
+                // save dots clustered on Dubai
+                ForEach(callouts.indices, id: \.self) { index in
+                    let callout = callouts[index]
+                    Circle()
+                        .fill(callout.color)
+                        .frame(width: 9, height: 9)
+                        .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                        .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+                        .position(x: width * callout.dotX, y: height * callout.dotY)
+                }
+
+                // callout tags
+                ForEach(callouts.indices, id: \.self) { index in
+                    let callout = callouts[index]
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(callout.title)
+                            .font(.system(size: 10.5, weight: .heavy))
+                        Text(callout.sub)
+                            .font(.system(size: 9, weight: .bold))
+                            .opacity(0.92)
+                    }
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
+                    .padding(.vertical, 5)
+                    .padding(.horizontal, 9)
+                    .background(callout.color, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .shadow(color: .black.opacity(0.25), radius: 5, y: 3)
+                    .position(x: width * callout.tagX, y: height * callout.tagY)
+                }
+
                 Text("HOME · 48 QUIET")
                     .font(.system(size: 9, weight: .heavy))
                     .kerning(0.6)
                     .foregroundStyle(Color(hex: 0x857A68))
                     .padding(.vertical, 4)
                     .padding(.horizontal, 8)
-                    .background(Color(hex: 0xF0EBE1).opacity(0.85),
+                    .background(Color(hex: 0xF0EBE1).opacity(0.9),
                                 in: RoundedRectangle(cornerRadius: 6))
-                    .position(x: geo.size.width * 0.80, y: geo.size.height * 0.08)
+                    .position(x: width * 0.30, y: height * 0.88)
             }
         }
-        .frame(height: 216)
+        .frame(height: 300)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .accessibilityLabel("Map of savings by zone: 318C Karama about 600, 382F Al Sufouh about 450, 365A Al Qouz about 450, and the fine at 334B")
+        .accessibilityLabel("Map of the UAE with savings pinned at Dubai: Karama about 1,800, Al Sufouh about 1,350, Al Qouz about 1,350, and the fine at 334B")
     }
 }
 
-/// A few crossing streets, drawn once — enough map to feel like Dubai,
-/// no map SDK anywhere near it.
-private struct StreetGrid: Shape {
+/// A simplified UAE silhouette — Gulf coast up to the Musandam horn, east
+/// coast down past Fujairah, straight desert borders. Hand-traced, no SDK.
+private struct UAEShape: Shape {
     func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let lines: [((CGFloat, CGFloat), (CGFloat, CGFloat))] = [
-            ((0.00, 0.55), (1.00, 0.20)),
-            ((0.12, 1.00), (0.52, 0.00)),
-            ((0.55, 1.00), (1.00, 0.42)),
-            ((0.00, 0.22), (0.34, 0.00)),
-            ((0.30, 1.00), (1.00, 0.72)),
+        let points: [(CGFloat, CGFloat)] = [
+            (0.03, 0.57), (0.14, 0.60), (0.24, 0.56), (0.34, 0.545),
+            (0.44, 0.51), (0.52, 0.50), (0.59, 0.47), (0.66, 0.40),
+            (0.72, 0.31), (0.76, 0.24), (0.79, 0.19), (0.85, 0.135),
+            (0.89, 0.10), (0.94, 0.05), (0.97, 0.03),
+            (0.98, 0.14), (0.97, 0.28), (0.91, 0.34), (0.89, 0.53),
+            (0.85, 0.54), (0.82, 0.97), (0.55, 0.945), (0.22, 0.93),
+            (0.02, 0.63),
         ]
-        for line in lines {
-            path.move(to: CGPoint(x: rect.width * line.0.0, y: rect.height * line.0.1))
-            path.addLine(to: CGPoint(x: rect.width * line.1.0, y: rect.height * line.1.1))
+        var path = Path()
+        path.move(to: CGPoint(x: rect.width * points[0].0, y: rect.height * points[0].1))
+        for point in points.dropFirst() {
+            path.addLine(to: CGPoint(x: rect.width * point.0, y: rect.height * point.1))
         }
+        path.closeSubpath()
         return path
-    }
-}
-
-private struct ZonePin: View {
-    let pin: ZonePinData
-
-    var body: some View {
-        VStack(spacing: 3) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(pin.title)
-                    .font(.system(size: 10.5, weight: .heavy))
-                Text(pin.sub)
-                    .font(.system(size: 9, weight: .bold))
-                    .opacity(0.92)
-            }
-            .monospacedDigit()
-            .foregroundStyle(.white)
-            .padding(.vertical, 5)
-            .padding(.horizontal, 9)
-            .background(pin.color, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .shadow(color: .black.opacity(0.25), radius: 5, y: 3)
-
-            Circle()
-                .fill(pin.color)
-                .frame(width: 10, height: 10)
-                .overlay(Circle().strokeBorder(.white, lineWidth: 2.5))
-                .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
-        }
     }
 }
 
