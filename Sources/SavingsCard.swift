@@ -220,14 +220,14 @@ struct SavingsLedgerView: View {
                 sectionCap("Where it came from — literally")
                 StreetMapCard(quietCount: activityCounts[.quietArrival] ?? 0)
 
-                sectionCap("The app had your back — the coin tray")
-                activityCard()
+                countsLine()
+                    .padding(.top, 18)
 
                 Text("Estimates from the reminder ledger — likely, never certain.")
                     .font(.system(size: 12))
                     .foregroundStyle(theme.secCap)
                     .frame(maxWidth: .infinity)
-                    .padding(.top, 16)
+                    .padding(.top, 13)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 28)
@@ -314,46 +314,34 @@ struct SavingsLedgerView: View {
 
     /// "The app had your back" as the coin tray: one coin per five events,
     /// stacks you can count at a glance.
-    private func activityCard() -> some View {
+    /// The old coin tray, calmed to one quiet passage of text — the same
+    /// facts without the furniture. Saves stay on the ticket; money stays
+    /// above; this is just the tally of what the app did.
+    private func countsLine() -> some View {
         let counts = activityCounts
-        // Everything the app did for you, one coin stack each — activity
-        // kinds plus the trips it watched and the saves it landed. Columns
-        // spread edge to edge so the tray reads full.
-        let items: [(String, Int)] = [
-            ("Quiet", counts[.quietArrival] ?? 0),
-            ("Trips", sessions.count),
-            ("Saves", totals.likelySaves),
-            ("SMS", counts[.smsPayStarted] ?? 0),
-            ("Parkin", counts[.parkinOpened] ?? 0),
-            ("Free", counts[.freeArrival] ?? 0),
-            ("Triggers", counts[.notParkingDismissed] ?? 0),
-        ].filter { $0.1 > 0 }
-        return HStack(alignment: .bottom, spacing: 0) {
-            ForEach(items, id: \.0) { item in
-                VStack(spacing: 5) {
-                    VStack(spacing: 2) {
-                        ForEach(0..<max(1, min(10, (item.1 + 4) / 5)), id: \.self) { _ in
-                            Capsule()
-                                .fill(LinearGradient(colors: [Color(hex: 0xF5CF7A), Color(hex: 0xDFA93C)],
-                                                     startPoint: .top, endPoint: .bottom))
-                                .overlay(Capsule().strokeBorder(Color(hex: 0xB9852A), lineWidth: 1.4))
-                                .frame(width: 27, height: 8)
-                        }
-                    }
-                    Text("\(item.1)")
-                        .font(.system(size: 15, weight: .heavy))
-                        .monospacedDigit()
-                        .foregroundStyle(theme.pageText)
-                    Text(item.0.uppercased())
-                        .font(.system(size: 8.5, weight: .bold))
-                        .kerning(0.6)
-                        .foregroundStyle(theme.secCap)
-                }
-                .frame(maxWidth: .infinity)
-            }
+        let items: [(Int, String)] = [
+            (counts[.quietArrival] ?? 0, "quiet arrivals"),
+            (sessions.count, "trips watched"),
+            (counts[.smsPayStarted] ?? 0, "SMS pays"),
+            (counts[.parkinOpened] ?? 0, "Parkin hand-offs"),
+            (counts[.freeArrival] ?? 0, "free spots"),
+            (counts[.notParkingDismissed] ?? 0, "not-parking taps"),
+        ].filter { $0.0 > 0 }
+        let line = items.enumerated().reduce(Text(verbatim: "")) { acc, pair in
+            acc
+                + Text(verbatim: pair.offset == 0 ? "" : " · ")
+                + Text("\(pair.element.0)").fontWeight(.heavy).foregroundStyle(theme.pageText)
+                + Text(verbatim: " \(pair.element.1)")
         }
-        .frame(maxWidth: .infinity)
-        .accessibilityLabel("Coin tray: trips watched, saves landed, and activity counts")
+        return line
+            .font(.system(size: 12.5))
+            .monospacedDigit()
+            .foregroundStyle(Color(hex: 0x6F6455))
+            .multilineTextAlignment(.center)
+            .lineSpacing(4)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 10)
+            .accessibilityLabel("Activity tally: quiet arrivals, trips watched, and pay hand-offs")
     }
 
     private func receiptTitle(for event: InterventionEvent) -> String {
@@ -412,7 +400,11 @@ private struct StreetMapCard: View {
             center: CLLocationCoordinate2D(latitude: 25.15, longitude: 55.23),
             span: MKCoordinateSpan(latitudeDelta: 0.34, longitudeDelta: 0.34)))) {
             ForEach(places) { place in
-                Annotation(place.title, coordinate: place.coordinate) {
+                // Anchor at the dot's edge so the dot touches the map point
+                // and the tag floats clear — never over its own text or a
+                // neighbor's.
+                Annotation(place.title, coordinate: place.coordinate,
+                           anchor: place.tagBelow ? .top : .bottom) {
                     VStack(spacing: 3) {
                         if place.tagBelow { placeDot(place.color) }
                         VStack(alignment: .leading, spacing: 1) {
@@ -449,7 +441,7 @@ private struct StreetMapCard: View {
         }
         .mapStyle(.standard(elevation: .flat, emphasis: .muted,
                             pointsOfInterest: .excludingAll, showsTraffic: false))
-        .frame(height: 320)
+        .frame(height: 220)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityLabel("Interactive map of savings: Karama about 2,400, Al Qouz about 1,800, Al Sufouh about 1,800, the fine at Al Satwa, and home marked quiet with \(quietCount) arrivals")
     }
@@ -679,6 +671,7 @@ private struct LotView: View {
                 .frame(maxWidth: .infinity)
             Text("TAP A MONTH")
                 .kerning(2)
+                .fixedSize()
             DashedRule(color: theme.paint.opacity(0.5), thickness: 2)
                 .frame(maxWidth: .infinity)
             Text("→")
