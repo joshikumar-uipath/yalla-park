@@ -143,11 +143,23 @@ private enum DemoYear {
         var all: [[(String, String, String, Bool)]] = []
         for month in 0..<12 {
             var rows: [(String, String, String, Bool)] = []
-            for i in 0..<counts[month] {
+            let saveCount = counts[month]
+            // Months with 4+ saves fold their last two into one +300 row —
+            // two extensions in one stay — so the column doesn't read as a
+            // loop of identical +150s. Sums per month are unchanged.
+            let hasDouble = saveCount >= 4
+            let rowCount = hasDouble ? saveCount - 1 : saveCount
+            for i in 0..<rowCount {
                 let zone = zones[(month + i * 2) % zones.count]
-                let title = String(format: templates[(month + i) % templates.count], zone)
                 let day = 1 + i * 3 + (month % 3)
-                rows.append(("\(day) \(months[month])", title, "+150", false))
+                if hasDouble && i == rowCount - 1 {
+                    rows.append(("\(day) \(months[month])",
+                                 "Extended Zone \(zone) twice before it lapsed",
+                                 "+300", false))
+                } else {
+                    let title = String(format: templates[(month + i) % templates.count], zone)
+                    rows.append(("\(day) \(months[month])", title, "+150", false))
+                }
             }
             if month == 2, rows.count >= 3 {
                 rows.insert(("21 MAR", "One fine got through", "−150", true), at: 2)
@@ -180,6 +192,9 @@ struct SavingsLedgerView: View {
     private var saves: [InterventionEvent] { events.filter(\.decisive) }
     private var totals: SavingsTotals { SavingsStats.totals(in: modelContext) }
     private var spend: Decimal { SavingsStats.estimatedSpendAED(sessions: sessions) }
+    /// Single source of truth for activity counts — the map chip and the coin
+    /// tray must never disagree.
+    private var activityCounts: [ActivityKind: Int] { ActivityLog.counts(in: modelContext) }
 
     var body: some View {
         ScrollView {
@@ -203,7 +218,7 @@ struct SavingsLedgerView: View {
                 }
 
                 sectionCap("Where it came from — literally")
-                StreetMapCard()
+                StreetMapCard(quietCount: activityCounts[.quietArrival] ?? 0)
 
                 sectionCap("The app had your back — the coin tray")
                 activityCard()
@@ -282,7 +297,7 @@ struct SavingsLedgerView: View {
     /// "The app had your back" as the coin tray: one coin per five events,
     /// stacks you can count at a glance.
     private func activityCard() -> some View {
-        let counts = ActivityLog.counts(in: modelContext)
+        let counts = activityCounts
         let items: [(String, ActivityKind)] = [
             ("Quiet", .quietArrival),
             ("SMS", .smsPayStarted),
@@ -332,40 +347,51 @@ struct SavingsLedgerView: View {
 // MARK: - Interactive savings map (MapKit — same engine as the Home screen)
 
 /// Demo pins at the real coordinates of the demo zones; re-wire to ledger
-/// zone data before release.
+/// zone data before release. `tagBelow` hangs the label under its dot so
+/// neighboring tags never overlap at the initial framing.
 private struct SavedPlace: Identifiable {
     let id = UUID()
     let title: String
     let sub: String
     let color: Color
     let coordinate: CLLocationCoordinate2D
+    let tagBelow: Bool
 }
 
 private struct StreetMapCard: View {
+    let quietCount: Int
+
+    /// Zone tags use their own warm ramp (not the reminder-kind colors);
+    /// the single dark red stays reserved for the fine.
     private let places: [SavedPlace] = [
         SavedPlace(title: "318C · Karama", sub: "~1,800 · 12 saves",
                    color: Color(hex: 0xD6431A),
-                   coordinate: CLLocationCoordinate2D(latitude: 25.2478, longitude: 55.3061)),
+                   coordinate: CLLocationCoordinate2D(latitude: 25.2478, longitude: 55.3061),
+                   tagBelow: false),
+        SavedPlace(title: "334B · Al Satwa", sub: "−150 · the fine",
+                   color: Color(hex: 0x8E2C0C),
+                   coordinate: CLLocationCoordinate2D(latitude: 25.2260, longitude: 55.2720),
+                   tagBelow: true),
+        SavedPlace(title: "365A · Al Qouz", sub: "~1,350 · 9 saves",
+                   color: Color(hex: 0xE8752C),
+                   coordinate: CLLocationCoordinate2D(latitude: 25.1370, longitude: 55.2320),
+                   tagBelow: false),
         SavedPlace(title: "382F · Al Sufouh", sub: "~1,350 · 9 saves",
                    color: Color(hex: 0xC07F10),
-                   coordinate: CLLocationCoordinate2D(latitude: 25.1124, longitude: 55.1610)),
-        SavedPlace(title: "365A · Al Qouz", sub: "~1,350 · 9 saves",
-                   color: Color(hex: 0xE23350),
-                   coordinate: CLLocationCoordinate2D(latitude: 25.1370, longitude: 55.2320)),
-        SavedPlace(title: "334B · Al Satwa", sub: "−150 · the fine",
-                   color: Color(hex: 0xB23A12),
-                   coordinate: CLLocationCoordinate2D(latitude: 25.2260, longitude: 55.2720)),
+                   coordinate: CLLocationCoordinate2D(latitude: 25.1124, longitude: 55.1610),
+                   tagBelow: true),
     ]
 
     private let home = CLLocationCoordinate2D(latitude: 25.0310, longitude: 55.1420)
 
     var body: some View {
         Map(initialPosition: .region(MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 25.16, longitude: 55.24),
-            span: MKCoordinateSpan(latitudeDelta: 0.30, longitudeDelta: 0.30)))) {
+            center: CLLocationCoordinate2D(latitude: 25.15, longitude: 55.23),
+            span: MKCoordinateSpan(latitudeDelta: 0.34, longitudeDelta: 0.34)))) {
             ForEach(places) { place in
                 Annotation(place.title, coordinate: place.coordinate) {
                     VStack(spacing: 3) {
+                        if place.tagBelow { placeDot(place.color) }
                         VStack(alignment: .leading, spacing: 1) {
                             Text(place.title)
                                 .font(.system(size: 10.5, weight: .heavy))
@@ -379,19 +405,16 @@ private struct StreetMapCard: View {
                         .padding(.horizontal, 9)
                         .background(place.color, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                         .shadow(color: .black.opacity(0.25), radius: 5, y: 3)
-                        Circle()
-                            .fill(place.color)
-                            .frame(width: 10, height: 10)
-                            .overlay(Circle().strokeBorder(.white, lineWidth: 2.5))
-                            .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+                        if !place.tagBelow { placeDot(place.color) }
                     }
                 }
                 .annotationTitles(.hidden)
             }
             Annotation("Home", coordinate: home) {
-                Text("HOME · 48 QUIET")
+                Text("HOME · \(quietCount) QUIET")
                     .font(.system(size: 9, weight: .heavy))
                     .kerning(0.6)
+                    .monospacedDigit()
                     .foregroundStyle(Color(hex: 0x857A68))
                     .padding(.vertical, 4)
                     .padding(.horizontal, 8)
@@ -401,10 +424,19 @@ private struct StreetMapCard: View {
             }
             .annotationTitles(.hidden)
         }
-        .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+        .mapStyle(.standard(elevation: .flat, emphasis: .muted,
+                            pointsOfInterest: .excludingAll, showsTraffic: false))
         .frame(height: 320)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .accessibilityLabel("Interactive map of savings: Karama about 1,800, Al Sufouh about 1,350, Al Qouz about 1,350, the fine at Al Satwa, and home marked quiet")
+        .accessibilityLabel("Interactive map of savings: Karama about 1,800, Al Qouz about 1,350, Al Sufouh about 1,350, the fine at Al Satwa, and home marked quiet with \(quietCount) arrivals")
+    }
+
+    private func placeDot(_ color: Color) -> some View {
+        Circle()
+            .fill(color)
+            .frame(width: 10, height: 10)
+            .overlay(Circle().strokeBorder(.white, lineWidth: 2.5))
+            .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
     }
 }
 
@@ -499,9 +531,9 @@ private struct TicketHero: View {
             .monospacedDigit()
 
             Barcode()
-                .frame(height: 34)
+                .frame(height: 22)
                 .padding(.top, 12)
-                .opacity(0.92)
+                .opacity(0.85)
         }
         .foregroundStyle(.white)
         .padding(19)
@@ -585,12 +617,14 @@ private struct LotView: View {
             ZStack {
                 LinearGradient(colors: [theme.asphaltA, theme.asphaltB],
                                startPoint: .top, endPoint: .bottom)
-                Ellipse().fill(.black.opacity(0.16)).frame(width: 90, height: 46).offset(x: -70, y: -60)
-                Ellipse().fill(.black.opacity(0.12)).frame(width: 66, height: 34).offset(x: 90, y: 70)
+                // Stains stay under parked cars — away from March's ✕ (reads
+                // as a smudge) and the dotted future bays.
+                Ellipse().fill(.black.opacity(0.16)).frame(width: 90, height: 46).offset(x: -148, y: -56)
+                Ellipse().fill(.black.opacity(0.12)).frame(width: 66, height: 34).offset(x: 60, y: -64)
                 Text("P")
                     .font(.system(size: 120, weight: .black))
                     .foregroundStyle(theme.paint.opacity(0.05))
-                    .offset(x: 120, y: 78)
+                    .offset(x: -112, y: -4)
             }
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -617,23 +651,23 @@ private struct LotView: View {
         index.isMultiple(of: 3) ? 1.8 : (index.isMultiple(of: 2) ? -1.6 : 0.6)
     }
 
+    // Lane dashes stop either side of the caption — a dash running through
+    // the words reads as strikethrough, like a disabled control.
     private var driveLane: some View {
-        HStack {
+        HStack(spacing: 10) {
             Text("→")
-            Spacer()
+            DashedRule(color: theme.paint.opacity(0.5), thickness: 2)
+                .frame(maxWidth: .infinity)
             Text("TAP A MONTH")
                 .kerning(2)
-            Spacer()
+            DashedRule(color: theme.paint.opacity(0.5), thickness: 2)
+                .frame(maxWidth: .infinity)
             Text("→")
         }
         .font(.system(size: 11, weight: .bold))
         .foregroundStyle(theme.paint.opacity(0.8))
         .padding(.horizontal, 12)
         .frame(height: 36)
-        .background(
-            DashedRule(color: theme.paint.opacity(0.5), thickness: 2)
-                .padding(.horizontal, 5)
-        )
     }
 
     private var footer: some View {
