@@ -180,6 +180,9 @@ struct SavingsLedgerView: View {
     @Query(sort: \InterventionEvent.firedAt, order: .reverse) private var events: [InterventionEvent]
 
     @State private var carsParked = false
+    /// Entrance animations run exactly once per presentation — onAppear can
+    /// re-fire (backgrounding, nav pops) and must not replay them.
+    @State private var entranceRan = false
     /// Selected month bay (0 = January); nil = collapsed. Tapping the
     /// selected month again puts the light out and folds the receipts away.
     @State private var selectedMonth: Int? = 7
@@ -223,7 +226,7 @@ struct SavingsLedgerView: View {
                 countsLine()
                     .padding(.top, 18)
 
-                Text("Estimates from the reminder ledger — likely, never certain.")
+                Text("Honest guesses, not guarantees — what the reminders likely saved you.")
                     .font(.system(size: 12))
                     .foregroundStyle(theme.secCap)
                     .frame(maxWidth: .infinity)
@@ -243,10 +246,17 @@ struct SavingsLedgerView: View {
             }
         }
         .onAppear {
-            carsParked = true
+            guard !entranceRan else { return }
+            entranceRan = true
             if reduceMotion {
+                carsParked = true
                 displayedAED = totals.avoidedAED
-            } else {
+                return
+            }
+            // Entrance animations must wait for the navigation push to
+            // settle — running springs during the transition stutters both.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                carsParked = true
                 withAnimation(.spring(response: 1.1, dampingFraction: 0.95)) {
                     displayedAED = totals.avoidedAED
                 }
