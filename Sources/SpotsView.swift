@@ -13,7 +13,10 @@ struct SpotsView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var passSession: Session?
-    @State private var expiredSession: Session?
+    /// The one ticket currently unfolded inline (slide-down). Tapping any
+    /// other row moves it there; tapping the same row or the open ticket
+    /// collapses it.
+    @State private var expandedTicketID: UUID?
     @State private var fineTarget: Session?
     @State private var fineAmountText = ""
 
@@ -78,11 +81,21 @@ struct SpotsView: View {
                                 switch entry {
                                 case .spotBlock(let spot, let tickets):
                                     spotRow(spot)
+                                    if let live = activeSession(at: spot),
+                                       expandedTicketID == live.id {
+                                        inlineActiveTicket(live)
+                                    }
                                     ForEach(tickets.prefix(10)) { session in
                                         pastTicketRow(session, indented: true)
+                                        if expandedTicketID == session.id {
+                                            inlineExpiredTicket(session)
+                                        }
                                     }
                                 case .looseTicket(let session):
                                     pastTicketRow(session, indented: false)
+                                    if expandedTicketID == session.id {
+                                        inlineExpiredTicket(session)
+                                    }
                                 }
                             }
                         } header: {
@@ -104,13 +117,6 @@ struct SpotsView: View {
             }
             .sheet(item: $passSession) { session in
                 PassScreen(session: session, onClose: { passSession = nil })
-                    .presentationDragIndicator(.visible)
-            }
-            // Expired tickets open the same ticket shape, greyed out —
-            // swipe down to put it away.
-            .sheet(item: $expiredSession) { session in
-                ExpiredTicketView(session: session, feeAED: feeEstimate(session))
-                    .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
             }
         }
@@ -158,7 +164,10 @@ struct SpotsView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            if let liveTicket { passSession = liveTicket }
+            guard let liveTicket else { return }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                expandedTicketID = expandedTicketID == liveTicket.id ? nil : liveTicket.id
+            }
         }
         .padding(.vertical, 2)
         .contextMenu {
@@ -243,7 +252,11 @@ struct SpotsView: View {
         .padding(.vertical, 4)
         .padding(.leading, indented ? 14 : 0)
         .contentShape(Rectangle())
-        .onTapGesture { expiredSession = session }
+        .onTapGesture {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                expandedTicketID = expandedTicketID == session.id ? nil : session.id
+            }
+        }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if !sessionFined(session) {
                 Button("I got fined") {
@@ -288,18 +301,48 @@ struct SpotsView: View {
     }
 }
 
-// MARK: - Expired ticket (the same pass, greyed out)
+// MARK: - Inline ticket rows
+
+extension SpotsView {
+    /// The coral live ticket, unfolded under its spot row. Tapping the card
+    /// opens the full pass; the row above collapses it.
+    @ViewBuilder
+    func inlineActiveTicket(_ session: Session) -> some View {
+        ActiveTicketCard(session: session) { passSession = session }
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
+            .transition(.asymmetric(insertion: .move(edge: .top).combined(with: .opacity),
+                                    removal: .move(edge: .top).combined(with: .opacity)))
+    }
+
+    /// The grey expired ticket, unfolded under its stub. Tap it (or the
+    /// stub) to fold it back up.
+    @ViewBuilder
+    func inlineExpiredTicket(_ session: Session) -> some View {
+        ExpiredTicketCard(session: session, feeAED: feeEstimate(session))
+            .onTapGesture {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    expandedTicketID = nil
+                }
+            }
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
+            .transition(.asymmetric(insertion: .move(edge: .top).combined(with: .opacity),
+                                    removal: .move(edge: .top).combined(with: .opacity)))
+    }
+}
+
+// MARK: - Expired ticket card (the same pass, greyed out)
 
 /// A finished session in the exact shape of the live pass — but drained of
-/// color: warm-grey gradient, frozen 0:00:00, EXPIRED stamp. Swipe down to
-/// dismiss.
-struct ExpiredTicketView: View {
+/// color: warm-grey gradient, frozen 0:00:00, EXPIRED stamp.
+struct ExpiredTicketCard: View {
     let session: Session
     let feeAED: Int?
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 18)
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Text("YALLA PARK")
@@ -351,14 +394,6 @@ struct ExpiredTicketView: View {
                                startPoint: .topLeading, endPoint: .bottomTrailing),
                 in: RoundedRectangle(cornerRadius: 18, style: .continuous)
             )
-            .padding(.horizontal, 18)
-            Text("This ticket is done — nothing to pay, nothing to extend.")
-                .font(.system(size: 12.5))
-                .foregroundStyle(Theme.labelTertiary)
-                .padding(.top, 14)
-            Spacer()
-        }
-        .presentationBackground(Color(hex: 0xF0EBE1))
     }
 }
 
