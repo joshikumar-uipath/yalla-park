@@ -99,27 +99,22 @@ struct OnboardingView: View {
                 stepRow(1, "Open the **Shortcuts** app → **Automation** tab → **＋**")
                 stepRow(2, "Choose **Bluetooth** → select your car's stereo → **When Disconnected**")
                 stepRow(3, "Pick **Run Immediately** (turn off \"Ask Before Running\")")
-                stepRow(4, "Add action **Open URLs** and paste:")
+                stepRow(4, "Add action → search **Yalla Park** → pick **Car parked — remind me**")
 
-                HStack(spacing: 10) {
-                    Text("dxbpark://parked")
-                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(Theme.labelPrimary)
-                    Spacer()
-                    Button {
-                        UIPasteboard.general.string = "dxbpark://parked"
-                        copied = true
-                    } label: {
-                        Text(copied ? "Copied ✓" : "Copy")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(copied ? Theme.success : Theme.coral)
-                    }
-                }
-                .padding(13)
-                .background(.white, in: RoundedRectangle(cornerRadius: 13))
-                .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
+                // Why the intent, not "open app": iOS refuses to launch an
+                // app from an automation while the phone is locked — and it's
+                // locked in your pocket right when you leave the car
+                // (tester-reported failure). The intent runs fine locked.
+                (Text("Works even while your phone is locked").fontWeight(.semibold)
+                 + Text(" — you get an instant notification; tapping it opens the pay flow."))
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Theme.labelSecondary)
+                    .padding(13)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 13))
+                    .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
 
-                Text("Use **CarPlay → When Disconnecting** instead if your car has CarPlay.")
+                Text("Use **CarPlay → When Disconnecting** instead if your car has CarPlay. Already set up with \"Open URLs\"? Edit the automation and swap that action for this one.")
                     .font(.system(size: 12.5))
                     .foregroundStyle(Theme.labelTertiary)
 

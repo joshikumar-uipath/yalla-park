@@ -89,6 +89,19 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         center.removePendingNotificationRequests(withIdentifiers: [ID.nag])
     }
 
+    // MARK: - Layer 1: the parked nudge (Bluetooth automation, locked phone)
+
+    /// Fired by CarParkedIntent the moment the car's Bluetooth drops. The
+    /// automation can't LAUNCH the app while the phone is locked (iOS rule,
+    /// tester-reported), so this notification is the bridge: tap → unlock →
+    /// straight into the parked flow (default tap = openParked).
+    func fireParkedNudge() {
+        schedule(id: "layer1-parked-nudge",
+                 title: "Just parked?",
+                 body: "Tap to check the zone and pay before you walk away.",
+                 at: .now.addingTimeInterval(1.5))
+    }
+
     // MARK: - Layer 4b: expiry reminders (with lock-screen +1 hr action)
 
     /// `zoneText` is the READY display label ("Zone 318C", "Sharjah Parking")
