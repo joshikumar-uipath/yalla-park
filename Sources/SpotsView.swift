@@ -22,30 +22,31 @@ struct SpotsView: View {
 
     private var activeSessions: [Session] { sessions.filter(\.isActive) }
 
-    /// One block per feed position: a spot with its expired tickets, or a
-    /// loose expired ticket whose spot no longer exists.
+    /// One card per feed position: a spot with its expired tickets, or a
+    /// ZONE gathering the tickets whose spot no longer exists — loose stubs
+    /// never float contextless between other people's cards.
     private enum FeedEntry: Identifiable {
         case spotBlock(Spot, [Session])
-        case looseTicket(Session)
+        case zoneBlock(String, [Session])
 
-        var id: UUID {
+        var id: String {
             switch self {
-            case .spotBlock(let spot, _): return spot.id
-            case .looseTicket(let session): return session.id
+            case .spotBlock(let spot, _): return spot.id.uuidString
+            case .zoneBlock(let zone, _): return "zone-\(zone)"
             }
         }
         var sortDate: Date {
             switch self {
             case .spotBlock(let spot, let tickets):
                 return max(spot.lastParkedAt, tickets.first?.startedAt ?? .distantPast)
-            case .looseTicket(let session):
-                return session.startedAt
+            case .zoneBlock(_, let tickets):
+                return tickets.first?.startedAt ?? .distantPast
             }
         }
     }
 
-    /// Expired tickets claimed by spots (zone match, first spot wins), the
-    /// rest flow into the feed on their own — everything stays visible.
+    /// Expired tickets claimed by spots (zone match, first spot wins); the
+    /// rest group by zone into their own cards.
     private var feed: [FeedEntry] {
         let past = sessions.filter { !$0.isActive }
         var claimed = Set<UUID>()
@@ -55,8 +56,30 @@ struct SpotsView: View {
             tickets.forEach { claimed.insert($0.id) }
             return .spotBlock(spot, tickets)
         }
-        entries += past.filter { !claimed.contains($0.id) }.map(FeedEntry.looseTicket)
+        let loose = past.filter { !claimed.contains($0.id) }
+        let grouped = Dictionary(grouping: loose, by: \.zoneCode)
+        entries += grouped.map { zone, tickets in
+            .zoneBlock(zone, tickets.sorted { $0.startedAt > $1.startedAt })
+        }
         return entries.sorted { $0.sortDate > $1.sortDate }
+    }
+
+    /// "Zone 318C" → the community it names, for meaningful loose-zone cards.
+    private func communityName(forZone zone: String) -> String? {
+        guard let number = Int(zone.prefix(while: \.isNumber)) else { return nil }
+        return ZoneLocator.communities.first { $0.number == number }?.displayName
+    }
+
+    /// The header strip: what this page holds, in one quiet line.
+    private var summaryLine: String {
+        let ticketCount = sessions.count
+        let placeCount = spots.count
+        let spend = sessions.compactMap(feeEstimate).reduce(0, +)
+        var parts: [String] = []
+        if placeCount > 0 { parts.append("\(placeCount) place\(placeCount == 1 ? "" : "s")") }
+        if ticketCount > 0 { parts.append("\(ticketCount) ticket\(ticketCount == 1 ? "" : "s")") }
+        if spend > 0 { parts.append("~AED \(spend) in parking") }
+        return parts.joined(separator: " · ")
     }
 
     var body: some View {
@@ -70,14 +93,28 @@ struct SpotsView: View {
                     )
                 } else {
                     List {
+                        // What this page holds, at a glance.
                         Section {
-                            ForEach(activeSessions) { session in
+                            Text(summaryLine)
+                                .font(.system(size: 13, weight: .semibold))
+                                .monospacedDigit()
+                                .foregroundStyle(Theme.labelSecondary)
+                                .frame(maxWidth: .infinity)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                        }
+                        ForEach(activeSessions) { session in
+                            Section {
                                 ActiveTicketCard(session: session) { passSession = session }
                                     .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
-                                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
+                                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                             }
-                            ForEach(feed) { entry in
+                        }
+                        // One CARD per place — its tickets live inside it.
+                        ForEach(feed) { entry in
+                            Section {
                                 switch entry {
                                 case .spotBlock(let spot, let tickets):
                                     spotRow(spot)
@@ -86,20 +123,23 @@ struct SpotsView: View {
                                         inlineActiveTicket(live)
                                     }
                                     ForEach(tickets.prefix(10)) { session in
-                                        pastTicketRow(session, indented: true)
+                                        pastTicketRow(session, showZone: false)
                                         if expandedTicketID == session.id {
                                             inlineExpiredTicket(session)
                                         }
                                     }
-                                case .looseTicket(let session):
-                                    pastTicketRow(session, indented: false)
-                                    if expandedTicketID == session.id {
-                                        inlineExpiredTicket(session)
+                                case .zoneBlock(let zone, let tickets):
+                                    zoneHeaderRow(zone)
+                                    ForEach(tickets.prefix(10)) { session in
+                                        pastTicketRow(session, showZone: false)
+                                        if expandedTicketID == session.id {
+                                            inlineExpiredTicket(session)
+                                        }
                                     }
                                 }
                             }
-                        } header: {
-                            Text("My Spots")
+                        }
+                        Section {
                         } footer: {
                             Text("Got a fine anyway? Swipe a ticket and tell us — it keeps the savings numbers honest.")
                         }
@@ -120,6 +160,21 @@ struct SpotsView: View {
                     .presentationDragIndicator(.visible)
             }
         }
+    }
+
+    // MARK: - Zone card header (tickets whose spot is gone)
+
+    private func zoneHeaderRow(_ zone: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(zone.isEmpty ? "Via the Parkin app" : "Zone \(zone)")
+                .font(.system(size: 16, weight: .semibold))
+            Text(zone.isEmpty
+                 ? "Tickets paid in Parkin's own app"
+                 : (communityName(forZone: zone).map { "\($0) · no saved spot" } ?? "No saved spot"))
+                .font(.system(size: 13.5))
+                .foregroundStyle(Theme.labelSecondary)
+        }
+        .padding(.vertical, 2)
     }
 
     // MARK: - Spot row
@@ -210,9 +265,9 @@ struct SpotsView: View {
 
     // MARK: - Ticket stubs
 
-    /// A finished session as a torn-off stub, stamped expired. Indented when
-    /// it sits under its spot.
-    private func pastTicketRow(_ session: Session, indented: Bool) -> some View {
+    /// A finished session as a torn-off stub, stamped expired. Zone is
+    /// omitted inside its own card (the card header already says it).
+    private func pastTicketRow(_ session: Session, showZone: Bool) -> some View {
         HStack(spacing: 10) {
             Text(session.startedAt.formatted(.dateTime.day().month(.abbreviated)).uppercased())
                 .font(.system(size: 10, weight: .heavy))
@@ -222,8 +277,11 @@ struct SpotsView: View {
                 .background(Color(hex: 0xD9EEE2), in: RoundedRectangle(cornerRadius: 6))
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(zoneLabel(session.zoneCode, operator: session.parkingOperator))
+                    Text(showZone
+                         ? zoneLabel(session.zoneCode, operator: session.parkingOperator)
+                         : "\(session.startedAt.formatted(date: .omitted, time: .shortened)) – \(session.expiresAt.formatted(date: .omitted, time: .shortened))")
                         .font(.system(size: 15, weight: .semibold))
+                        .monospacedDigit()
                     if sessionFined(session) {
                         Text("Fined")
                             .font(.system(size: 11, weight: .bold))
@@ -232,7 +290,7 @@ struct SpotsView: View {
                             .foregroundStyle(Theme.coral)
                     }
                 }
-                Text("\(session.startedAt.formatted(date: .omitted, time: .shortened)) · \(session.durationHours)h\(session.extendedCount > 0 ? " · extended ×\(session.extendedCount)" : "")")
+                Text("\(session.durationHours) hour\(session.durationHours == 1 ? "" : "s")\(session.extendedCount > 0 ? " · extended ×\(session.extendedCount)" : "")\(session.paidViaParkinApp ? " · Parkin app" : "")")
                     .font(.system(size: 12.5))
                     .foregroundStyle(Theme.labelSecondary)
             }
@@ -250,7 +308,6 @@ struct SpotsView: View {
             }
         }
         .padding(.vertical, 4)
-        .padding(.leading, indented ? 14 : 0)
         .contentShape(Rectangle())
         .onTapGesture {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
