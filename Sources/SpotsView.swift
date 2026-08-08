@@ -1,34 +1,58 @@
 import SwiftUI
 import SwiftData
 
-/// My Spots: ONE list — places, with their tickets inside. Each spot row
-/// expands to its tickets (live coral mini-pass first, then expired stubs);
-/// collapsed, a small green ticket badge on the right says "paid & active
-/// here right now". Sessions in zones without a saved spot gather under
-/// "Other tickets".
+/// My Spots: ONE feed, newest first. Active tickets sit at the very top as
+/// live coral cards (tap → pass). Below, everything in reverse-chronological
+/// order: each spot with its expired tickets INLINE right under it, and
+/// tickets whose spot is gone shown as plain stubs in the same stream —
+/// nothing hidden behind a tap, no separate sections.
 struct SpotsView: View {
     @Query(sort: \Spot.lastParkedAt, order: .reverse) private var spots: [Spot]
     @Query(sort: \Session.startedAt, order: .reverse) private var sessions: [Session]
     @Query private var interventions: [InterventionEvent]
     @Environment(\.modelContext) private var modelContext
 
-    @State private var expandedSpots: Set<UUID> = []
-    @State private var otherExpanded = false
     @State private var passSession: Session?
     @State private var fineTarget: Session?
     @State private var fineAmountText = ""
 
-    /// Sessions belonging to a spot — matched by zone code.
-    private func spotSessions(_ spot: Spot) -> [Session] {
-        guard !spot.zoneCode.isEmpty else { return [] }
-        return sessions.filter { $0.zoneCode == spot.zoneCode }
+    private var activeSessions: [Session] { sessions.filter(\.isActive) }
+
+    /// One block per feed position: a spot with its expired tickets, or a
+    /// loose expired ticket whose spot no longer exists.
+    private enum FeedEntry: Identifiable {
+        case spotBlock(Spot, [Session])
+        case looseTicket(Session)
+
+        var id: UUID {
+            switch self {
+            case .spotBlock(let spot, _): return spot.id
+            case .looseTicket(let session): return session.id
+            }
+        }
+        var sortDate: Date {
+            switch self {
+            case .spotBlock(let spot, let tickets):
+                return max(spot.lastParkedAt, tickets.first?.startedAt ?? .distantPast)
+            case .looseTicket(let session):
+                return session.startedAt
+            }
+        }
     }
 
-    /// Sessions whose zone has no saved spot (deleted spots, Parkin-app
-    /// payments with no zone).
-    private var orphanSessions: [Session] {
-        let knownZones = Set(spots.map(\.zoneCode).filter { !$0.isEmpty })
-        return sessions.filter { $0.zoneCode.isEmpty || !knownZones.contains($0.zoneCode) }
+    /// Expired tickets claimed by spots (zone match, first spot wins), the
+    /// rest flow into the feed on their own — everything stays visible.
+    private var feed: [FeedEntry] {
+        let past = sessions.filter { !$0.isActive }
+        var claimed = Set<UUID>()
+        var entries: [FeedEntry] = spots.map { spot in
+            guard !spot.zoneCode.isEmpty else { return .spotBlock(spot, []) }
+            let tickets = past.filter { $0.zoneCode == spot.zoneCode && !claimed.contains($0.id) }
+            tickets.forEach { claimed.insert($0.id) }
+            return .spotBlock(spot, tickets)
+        }
+        entries += past.filter { !claimed.contains($0.id) }.map(FeedEntry.looseTicket)
+        return entries.sorted { $0.sortDate > $1.sortDate }
     }
 
     var body: some View {
@@ -38,28 +62,32 @@ struct SpotsView: View {
                     ContentUnavailableView(
                         "No spots yet",
                         systemImage: "mappin.slash",
-                        description: Text("Park somewhere and pay once — the place is remembered here, with every ticket tucked inside it.")
+                        description: Text("Park somewhere and pay once — the place and its tickets live here.")
                     )
                 } else {
                     List {
-                        if !spots.isEmpty {
-                            Section {
-                                ForEach(spots) { spot in
-                                    spotGroup(spot)
-                                }
-                                .onDelete { indexSet in
-                                    for index in indexSet { modelContext.delete(spots[index]) }
-                                }
-                            } header: {
-                                Text("My Spots")
-                            } footer: {
-                                Text("Tap a spot for its tickets. Got a fine anyway? Swipe a ticket and tell us — it keeps the savings numbers honest.")
+                        Section {
+                            ForEach(activeSessions) { session in
+                                ActiveTicketCard(session: session) { passSession = session }
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
                             }
-                        }
-                        if !orphanSessions.isEmpty {
-                            Section {
-                                otherTicketsGroup
+                            ForEach(feed) { entry in
+                                switch entry {
+                                case .spotBlock(let spot, let tickets):
+                                    spotRow(spot)
+                                    ForEach(tickets.prefix(10)) { session in
+                                        pastTicketRow(session, indented: true)
+                                    }
+                                case .looseTicket(let session):
+                                    pastTicketRow(session, indented: false)
+                                }
                             }
+                        } header: {
+                            Text("My Spots")
+                        } footer: {
+                            Text("Got a fine anyway? Swipe a ticket and tell us — it keeps the savings numbers honest.")
                         }
                     }
                 }
@@ -80,30 +108,27 @@ struct SpotsView: View {
         }
     }
 
-    // MARK: - Spot row (expandable)
+    // MARK: - Spot row
 
-    private func spotGroup(_ spot: Spot) -> some View {
-        let tickets = spotSessions(spot)
-        let active = tickets.filter(\.isActive)
-        let past = tickets.filter { !$0.isActive }
-        return DisclosureGroup(isExpanded: expandedBinding(for: spot.id)) {
-            if tickets.isEmpty {
-                Text("No tickets here yet.")
-                    .font(.system(size: 13.5))
-                    .foregroundStyle(Theme.labelTertiary)
+    private func spotRow(_ spot: Spot) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Text(spot.name)
+                    .font(.system(size: 16, weight: .semibold))
+                if let designation = spot.designation {
+                    Label(designation.label, systemImage: designation.icon)
+                        .font(.system(size: 11, weight: .bold))
+                        .padding(.vertical, 2).padding(.horizontal, 7)
+                        .background(Color(hex: 0xEFEDE7), in: Capsule())
+                        .foregroundStyle(Theme.labelSecondary)
+                }
             }
-            ForEach(active) { session in
-                ActiveTicketCard(session: session) { passSession = session }
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
-            }
-            ForEach(past.prefix(20)) { session in
-                pastTicketRow(session)
-            }
-        } label: {
-            spotLabel(spot, hasActiveTicket: !active.isEmpty)
+            // Meta line skips what it doesn't know — never a dangling "Zone ·".
+            Text(spotMeta(spot))
+                .font(.system(size: 13.5))
+                .foregroundStyle(Theme.labelSecondary)
         }
+        .padding(.vertical, 2)
         .contextMenu {
             ForEach(SpotDesignation.allCases, id: \.self) { designation in
                 if spot.designation != designation {
@@ -123,96 +148,30 @@ struct SpotsView: View {
                 }
             }
         }
-    }
-
-    private func spotLabel(_ spot: Spot, hasActiveTicket: Bool) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(spot.name)
-                        .font(.system(size: 16, weight: .semibold))
-                    if let designation = spot.designation {
-                        Label(designation.label, systemImage: designation.icon)
-                            .font(.system(size: 11, weight: .bold))
-                            .padding(.vertical, 2).padding(.horizontal, 7)
-                            .background(Color(hex: 0xEFEDE7), in: Capsule())
-                            .foregroundStyle(Theme.labelSecondary)
-                    }
-                }
-                HStack(spacing: 6) {
-                    Text(spot.zoneKind == .free ? "Free parking" : "Zone \(spot.zoneCode)")
-                    Text("·")
-                    Text("parked \(spot.timesParked)×")
-                    Text("·")
-                    Text(spot.lastParkedAt.formatted(.relative(presentation: .named)))
-                }
-                .font(.system(size: 13.5))
-                .foregroundStyle(Theme.labelSecondary)
-            }
-            Spacer(minLength: 6)
-            if hasActiveTicket {
-                // The "paid & running here" badge — a small live ticket.
-                Image(systemName: "ticket.fill")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(.vertical, 5)
-                    .padding(.horizontal, 8)
-                    .background(Theme.success, in: Capsule())
-                    .accessibilityLabel("Active ticket here")
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button("Forget spot", role: .destructive) {
+                modelContext.delete(spot)
             }
         }
-        .padding(.vertical, 2)
     }
 
-    private func expandedBinding(for id: UUID) -> Binding<Bool> {
-        Binding(get: { expandedSpots.contains(id) },
-                set: { open in
-                    if open { expandedSpots.insert(id) } else { expandedSpots.remove(id) }
-                })
-    }
-
-    // MARK: - Other tickets (no saved spot)
-
-    private var otherTicketsGroup: some View {
-        let active = orphanSessions.filter(\.isActive)
-        let past = orphanSessions.filter { !$0.isActive }
-        return DisclosureGroup(isExpanded: $otherExpanded) {
-            ForEach(active) { session in
-                ActiveTicketCard(session: session) { passSession = session }
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
-            }
-            ForEach(past.prefix(20)) { session in
-                pastTicketRow(session)
-            }
-        } label: {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Other tickets")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Zones without a saved spot")
-                        .font(.system(size: 13.5))
-                        .foregroundStyle(Theme.labelSecondary)
-                }
-                Spacer(minLength: 6)
-                if !active.isEmpty {
-                    Image(systemName: "ticket.fill")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.vertical, 5)
-                        .padding(.horizontal, 8)
-                        .background(Theme.success, in: Capsule())
-                }
-            }
-            .padding(.vertical, 2)
+    private func spotMeta(_ spot: Spot) -> String {
+        var parts: [String] = []
+        if spot.zoneKind == .free {
+            parts.append("Free parking")
+        } else if !spot.zoneCode.isEmpty {
+            parts.append("Zone \(spot.zoneCode)")
         }
+        parts.append("parked \(spot.timesParked)×")
+        parts.append(spot.lastParkedAt.formatted(.relative(presentation: .named)))
+        return parts.joined(separator: " · ")
     }
 
-    // MARK: - Ticket rows
+    // MARK: - Ticket stubs
 
-    /// A finished session as a torn-off stub, stamped expired.
-    private func pastTicketRow(_ session: Session) -> some View {
+    /// A finished session as a torn-off stub, stamped expired. Indented when
+    /// it sits under its spot.
+    private func pastTicketRow(_ session: Session, indented: Bool) -> some View {
         HStack(spacing: 10) {
             Text(session.startedAt.formatted(.dateTime.day().month(.abbreviated)).uppercased())
                 .font(.system(size: 10, weight: .heavy))
@@ -250,6 +209,7 @@ struct SpotsView: View {
             }
         }
         .padding(.vertical, 4)
+        .padding(.leading, indented ? 14 : 0)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if !sessionFined(session) {
                 Button("I got fined") {
