@@ -1183,29 +1183,28 @@ struct HomeView: View {
         ActivityLog.log(.parkinOpened, label: zoneCode.uppercased(), in: modelContext)
         paidViaParkin = true
         awaitingParkinReturn = true
-        if let scheme = URL(string: ParkinRules.parkinAppScheme),
-           UIApplication.shared.canOpenURL(scheme) {
-            UIApplication.shared.open(scheme)
-            return
-        }
-        // App-routing chain (field-driven, build 45): iOS refused the www
-        // universal link on a device WITH Parkin installed — likely their
-        // app declares only the apex domain — so try apex first, then www.
-        // Last resort is the /clip page in Safari: their site's open-in-app
-        // banner or instant App Clip pay flow, never a dead App Store page
-        // when the app is already installed.
-        let apex = URL(string: ParkinRules.parkinUniversalLinkApex)
-        let www = URL(string: ParkinRules.parkinUniversalLink)
-        func tryOpen(_ candidates: [URL], appOnly: Bool) {
-            guard let url = candidates.first else {
-                if let page = www { UIApplication.shared.open(page) }
+        // App-routing chain (field-driven, builds 45–46): the scheme is
+        // confirmed from Parkin's own smart-banner meta (parkin://home) and
+        // attempted DIRECTLY — canOpenURL misreported on a device that had
+        // the app installed. Then both universal-link hosts app-only; last
+        // resort is their homepage in Safari, whose smart banner opens the
+        // installed app in one tap. Never the App Store.
+        var chain: [(URL, Bool)] = []
+        if let scheme = URL(string: ParkinRules.parkinAppScheme) { chain.append((scheme, false)) }
+        if let apex = URL(string: ParkinRules.parkinUniversalLinkApex) { chain.append((apex, true)) }
+        if let www = URL(string: ParkinRules.parkinUniversalLink) { chain.append((www, true)) }
+        func tryOpen(_ candidates: [(URL, Bool)]) {
+            guard let (url, appOnly) = candidates.first else {
+                if let site = URL(string: ParkinRules.parkinWebsite) {
+                    UIApplication.shared.open(site)
+                }
                 return
             }
             UIApplication.shared.open(url, options: appOnly ? [.universalLinksOnly: true] : [:]) { opened in
-                if !opened { tryOpen(Array(candidates.dropFirst()), appOnly: appOnly) }
+                if !opened { tryOpen(Array(candidates.dropFirst())) }
             }
         }
-        tryOpen([apex, www].compactMap { $0 }, appOnly: true)
+        tryOpen(chain)
     }
 
     private func confirmPaid() {

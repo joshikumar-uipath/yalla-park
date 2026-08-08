@@ -28,8 +28,12 @@ struct Verdict: Equatable {
 enum ParkinRules {
     // Payment channels
     // Hand-off to Parkin's own app (their zone DB does the detecting; we do
-    // the reminding). Scheme unverified-official; store page is the fallback.
-    static let parkinAppScheme = "parkin://"
+    // the reminding). Scheme CONFIRMED from parkin.ae's own smart-banner
+    // meta tag: app-argument=parkin://home (fetched 2026-08-08).
+    static let parkinAppScheme = "parkin://home"
+    /// Safari fallback with their open-in-app smart banner (/clip 404s as a
+    /// plain webpage — never send Safari there).
+    static let parkinWebsite = "https://www.parkin.ae/"
     /// From parkin.ae's AASA (bundle com.parkin.parkinapp): /clip* is a
     /// universal link — routes into the full app when installed, or their
     /// instant App Clip pay flow when not. Field reality (build 44): iOS can
