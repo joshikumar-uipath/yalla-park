@@ -58,7 +58,26 @@ struct HomeView: View {
     @AppStorage("savingsCardDismissedCount") private var savingsCardDismissedCount = 0
     @State private var showLedger = false
     @State private var showScanner = false
+    /// Guard on the destructive "payment didn't go through" — field report:
+    /// one stray tap deleted a live pass with 1:54 remaining.
+    @State private var showVoidConfirm = false
+    /// The last voided pass, kept until its own expiry so a mistaken void
+    /// can be undone in place.
+    @State private var voidedBackup: VoidedPass?
     @FocusState private var zoneFieldFocused: Bool
+
+    /// Snapshot of a session at the moment it was voided — enough to rebuild
+    /// it exactly if the void turns out to be a mis-tap.
+    struct VoidedPass {
+        let plate: String
+        let zoneCode: String
+        let kindRaw: String
+        let operatorRaw: String?
+        let startedAt: Date
+        let durationHours: Int
+        let extendedCount: Int
+        let expiresAt: Date
+    }
 
     private var activeSession: Session? { sessions.first(where: \.isActive) }
     /// The matched Home/Office place, unless the user chose to pay here today.
@@ -236,8 +255,43 @@ struct HomeView: View {
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
+            // Always-visible route back to a live pass (field request: after
+            // any detour, the ticket must stay one tap away).
+            if let session = activeSession {
+                HStack {
+                    activePassChip(session)
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 7)
+            }
             Spacer()
         }
+    }
+
+    /// Live-countdown chip for the running pass — tap to reopen it.
+    private func activePassChip(_ session: Session) -> some View {
+        Button { showPass = true } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "ticket.fill")
+                    .font(.system(size: 12, weight: .bold))
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text(countdownText(max(0, session.expiresAt.timeIntervalSince(context.date))))
+                        .font(.system(size: 14, weight: .bold))
+                        .monospacedDigit()
+                }
+                Text("· \(zoneLabel(session.zoneCode, operator: session.parkingOperator))")
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(.white)
+            .padding(.vertical, 9)
+            .padding(.horizontal, 13)
+            .background(Theme.success, in: Capsule())
+            .shadow(color: Theme.success.opacity(0.35), radius: 7, y: 3)
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel("Active pass, tap to view")
     }
 
     /// Always-on incentive: the running "likely saved" total, one tap from the
@@ -302,6 +356,9 @@ struct HomeView: View {
 
     private var sheet: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if activeSession == nil, let backup = voidedBackup, backup.expiresAt > .now {
+                restoreBanner(backup)
+            }
             if let session = activeSession {
                 activeSessionContent(session)
             } else if let spot = designatedSpot, let designation = spot.designation {
@@ -327,6 +384,38 @@ struct HomeView: View {
         .padding(.bottom, 60)
         .animation(Theme.sheetSpring, value: verdict)
         .animation(Theme.sheetSpring, value: activeSession != nil)
+    }
+
+    /// The undo for a mistaken void — visible until the pass would have
+    /// expired anyway.
+    private func restoreBanner(_ backup: VoidedPass) -> some View {
+        Button {
+            restoreVoidedPass(backup)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.uturn.backward.circle.fill")
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Voided by mistake? Restore your pass")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Theme.labelPrimary)
+                    Text("\(zoneLabel(backup.zoneCode, operator: ParkingOperator(rawValue: backup.operatorRaw ?? "") ?? .parkin)) · runs until \(backup.expiresAt.formatted(date: .omitted, time: .shortened))")
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(Theme.labelSecondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Theme.labelTertiary)
+            }
+            .padding(.vertical, 11)
+            .padding(.horizontal, 12)
+            .background(.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
+        }
+        .buttonStyle(PressScaleStyle())
+        .padding(.bottom, 14)
     }
 
     // State A/B — payment required
@@ -926,9 +1015,11 @@ struct HomeView: View {
             .padding(.top, 16)
 
             // Field reality (TestFlight): Parkin can reject the SMS ("Invalid
-            // Zone") after the user already confirmed. Give them a way out.
+            // Zone") after the user already confirmed. Give them a way out —
+            // but behind a confirmation: this deletes a live pass, and a
+            // stray tap once cost the user a pass with 1:54 remaining.
             Button {
-                voidSession(session)
+                showVoidConfirm = true
             } label: {
                 Text("Payment didn't go through? Fix zone & resend")
                     .font(.system(size: 13, weight: .semibold))
@@ -936,6 +1027,15 @@ struct HomeView: View {
                     .frame(maxWidth: .infinity)
             }
             .padding(.top, 12)
+            .confirmationDialog("Void this pass?", isPresented: $showVoidConfirm,
+                                titleVisibility: .visible) {
+                Button("Void it — the payment failed", role: .destructive) {
+                    voidSession(session)
+                }
+                Button("Keep my pass", role: .cancel) {}
+            } message: {
+                Text("Only if \(session.parkingOperator.label) rejected or never confirmed the payment. Your remaining time is removed — you can restore it from the next screen if this was a mistake.")
+            }
         }
     }
 
@@ -990,6 +1090,15 @@ struct HomeView: View {
     /// meter, widget, reminders, save credit — and the zone memory the phantom
     /// payment created (spot + recents), so the bad code can't auto-fill again.
     private func voidSession(_ session: Session) {
+        // Keep a snapshot until the pass would have expired — mistaken voids
+        // get an in-place undo.
+        voidedBackup = VoidedPass(plate: session.plate, zoneCode: session.zoneCode,
+                                  kindRaw: session.zoneKindRaw,
+                                  operatorRaw: session.operatorRaw,
+                                  startedAt: session.startedAt,
+                                  durationHours: session.durationHours,
+                                  extendedCount: session.extendedCount,
+                                  expiresAt: session.expiresAt)
         InterventionLog.voidSession(sessionID: session.id, in: modelContext)
         modelContext.delete(session)
         NotificationManager.shared.cancelSessionReminders()
@@ -1009,6 +1118,35 @@ struct HomeView: View {
         manualZoneEntry = true
         recomputeVerdict()
         syncProtection()
+    }
+
+    /// Undo a mistaken void: rebuild the session exactly as it was (extends
+    /// included) and put the pass, reminders, and widget back. The ledger
+    /// credit revoked by the void stays revoked — under-counting a save is
+    /// the honest direction.
+    private func restoreVoidedPass(_ backup: VoidedPass) {
+        let session = Session(plate: backup.plate, zoneCode: backup.zoneCode,
+                              kind: ZoneKind(rawValue: backup.kindRaw) ?? .standard,
+                              durationHours: backup.durationHours,
+                              startedAt: backup.startedAt)
+        session.extendedCount = backup.extendedCount
+        session.expiresAt = backup.expiresAt
+        session.paymentAttempted = true
+        session.userConfirmedPaid = true
+        session.operatorRaw = backup.operatorRaw
+        modelContext.insert(session)
+        voidedBackup = nil
+        NotificationManager.shared.scheduleExpiryReminders(
+            zoneText: zoneLabel(session.zoneCode, operator: session.parkingOperator),
+            expiresAt: session.expiresAt)
+        LiveActivityManager.start(zoneCode: session.zoneCode, plate: session.plate,
+                                  startedAt: session.startedAt, expiresAt: session.expiresAt)
+        WidgetSessionStore.save(zoneCode: session.zoneCode, plate: session.plate,
+                                startedAt: session.startedAt, expiresAt: session.expiresAt)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        recomputeVerdict()
+        syncProtection()
+        showPass = true
     }
 
     // MARK: - Pipeline (§8)
