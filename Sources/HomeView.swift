@@ -39,9 +39,14 @@ struct HomeView: View {
 
     @State private var showComposer = false
     @State private var showConfirm = false
-    @State private var showPass = false
+    /// The pass being viewed (item-driven so either of two active tickets
+    /// can be opened).
+    @State private var passTarget: Session?
     @State private var extending = false
     @State private var dismissed = false
+    /// User chose "parking somewhere else" while a ticket runs — the sheet
+    /// shows the pay flow for a SECOND parallel ticket.
+    @State private var payingSecondTicket = false
     /// "I need to pay here today" at a Home/Office spot — one-visit override.
     @State private var payAnyway = false
     /// Waiting for the user to come back from the Parkin app.
@@ -80,6 +85,20 @@ struct HomeView: View {
     }
 
     private var activeSession: Session? { sessions.first(where: \.isActive) }
+    private var activeSessions: [Session] { sessions.filter(\.isActive) }
+    /// The ticket that runs out first — what the widget and chip track.
+    private var soonestActiveSession: Session? {
+        activeSessions.min(by: { $0.expiresAt < $1.expiresAt })
+    }
+    /// Which session an extend applies to: the one whose notification was
+    /// tapped if known, else the sheet's displayed (most recent) session.
+    private var extendTarget: Session? {
+        if let id = NotificationManager.shared.extendTargetSessionID,
+           let match = sessions.first(where: { $0.id == id && $0.isActive }) {
+            return match
+        }
+        return activeSession
+    }
     /// The matched Home/Office place, unless the user chose to pay here today.
     private var designatedSpot: Spot? {
         guard !payAnyway, let spot = matchedSpot, spot.designation != nil else { return nil }
@@ -103,7 +122,7 @@ struct HomeView: View {
     private var smsBody: String {
         // Extends route by the SESSION's operator: reply-style operators get
         // their bare "Y"/"E"; resend-style get the full payment SMS again.
-        if extending, let session = activeSession {
+        if extending, let session = extendTarget {
             switch session.parkingOperator.extendMethod {
             case .reply(let reply):
                 return reply
@@ -115,7 +134,7 @@ struct HomeView: View {
         return parkingOperator.smsBody(plate: plateProfile, zone: zoneCode, hours: hours)
     }
     private var smsRecipient: String {
-        if extending, let session = activeSession { return session.parkingOperator.smsNumber }
+        if extending, let session = extendTarget { return session.parkingOperator.smsNumber }
         return parkingOperator.smsNumber
     }
     /// The pay button needs a plate and whatever "zone" means here.
@@ -173,7 +192,7 @@ struct HomeView: View {
         }
         .onChange(of: router.parkedTrigger) { runPipeline() }
         .onChange(of: router.extendTrigger) {
-            guard let session = activeSession else { return }
+            guard let session = extendTarget else { return }
             extending = true
             if session.paidViaParkinApp { openParkinApp() } else { startComposerFlow() }
         }
@@ -196,7 +215,7 @@ struct HomeView: View {
                 smsBody: smsBody,
                 viaParkinApp: paidViaParkin,
                 parkingOperator: extending
-                    ? (activeSession?.parkingOperator ?? parkingOperator)
+                    ? (extendTarget?.parkingOperator ?? parkingOperator)
                     : parkingOperator,
                 onConfirm: confirmPaid,
                 onNotYet: { showConfirm = false; paidViaParkin = false }
@@ -204,11 +223,9 @@ struct HomeView: View {
         }
         // A sheet, not fullScreenCover, so the pass swipes away naturally;
         // "Back to map" stays as the discoverable path.
-        .sheet(isPresented: $showPass) {
-            if let session = activeSession {
-                PassScreen(session: session, onClose: { showPass = false })
-                    .presentationDragIndicator(.visible)
-            }
+        .sheet(item: $passTarget) { session in
+            PassScreen(session: session, onClose: { passTarget = nil })
+                .presentationDragIndicator(.visible)
         }
     }
 
@@ -257,9 +274,9 @@ struct HomeView: View {
             .padding(.top, 8)
             // Always-visible route back to a live pass (field request: after
             // any detour, the ticket must stay one tap away).
-            if let session = activeSession {
+            if let session = soonestActiveSession {
                 HStack {
-                    activePassChip(session)
+                    activePassChip(session, extraCount: activeSessions.count - 1)
                     Spacer()
                 }
                 .padding(.horizontal, 20)
@@ -269,9 +286,10 @@ struct HomeView: View {
         }
     }
 
-    /// Live-countdown chip for the running pass — tap to reopen it.
-    private func activePassChip(_ session: Session) -> some View {
-        Button { showPass = true } label: {
+    /// Live-countdown chip for the running pass (the soonest-expiring one
+    /// when several run) — tap to reopen it.
+    private func activePassChip(_ session: Session, extraCount: Int = 0) -> some View {
+        Button { passTarget = session } label: {
             HStack(spacing: 7) {
                 Image(systemName: "ticket.fill")
                     .font(.system(size: 12, weight: .bold))
@@ -280,7 +298,7 @@ struct HomeView: View {
                         .font(.system(size: 14, weight: .bold))
                         .monospacedDigit()
                 }
-                Text("· \(zoneLabel(session.zoneCode, operator: session.parkingOperator))")
+                Text("· \(zoneLabel(session.zoneCode, operator: session.parkingOperator))\(extraCount > 0 ? " · +\(extraCount) more" : "")")
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
             }
@@ -359,13 +377,13 @@ struct HomeView: View {
             if activeSession == nil, let backup = voidedBackup, backup.expiresAt > .now {
                 restoreBanner(backup)
             }
-            if let session = activeSession {
+            if let session = activeSession, !payingSecondTicket {
                 activeSessionContent(session)
             } else if let spot = designatedSpot, let designation = spot.designation {
                 designatedContent(spot: spot, designation: designation)
             } else if dismissed {
                 dismissedContent
-            } else if verdict.paymentRequired {
+            } else if verdict.paymentRequired || payingSecondTicket {
                 payContent
             } else {
                 freeContent
@@ -421,6 +439,20 @@ struct HomeView: View {
     // State A/B — payment required
     private var payContent: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if payingSecondTicket, let running = activeSession {
+                Button {
+                    payingSecondTicket = false
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("Back to my \(zoneLabel(running.zoneCode, operator: running.parkingOperator)) ticket")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundStyle(Theme.coral)
+                }
+                .padding(.bottom, 12)
+            }
             HStack(spacing: 10) {
                 TagPill(text: payTagText,
                         background: Theme.paidTagBackground, foreground: Theme.paidTagText, dot: Theme.coral)
@@ -980,7 +1012,7 @@ struct HomeView: View {
                 .padding(.top, 2)
 
             HStack(spacing: 10) {
-                Button { showPass = true } label: {
+                Button { passTarget = session } label: {
                     HStack(spacing: 7) {
                         Image(systemName: "ticket.fill")
                             .font(.system(size: 14, weight: .semibold))
@@ -996,6 +1028,7 @@ struct HomeView: View {
                 .buttonStyle(PressScaleStyle())
 
                 Button {
+                    NotificationManager.shared.extendTargetSessionID = session.id
                     extending = true
                     if session.paidViaParkinApp { openParkinApp() } else { startComposerFlow() }
                 } label: {
@@ -1036,6 +1069,19 @@ struct HomeView: View {
             } message: {
                 Text("Only if \(session.parkingOperator.label) rejected or never confirmed the payment. Your remaining time is removed — you can restore it from the next screen if this was a mistake.")
             }
+
+            // Moved zones with time still on this ticket? Both can run —
+            // this one stays live while you pay for the new place.
+            Button {
+                payingSecondTicket = true
+                manualZoneEntry = false
+            } label: {
+                Text("Parking somewhere else? Pay a new ticket")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                    .frame(maxWidth: .infinity)
+            }
+            .padding(.top, 10)
         }
     }
 
@@ -1101,7 +1147,7 @@ struct HomeView: View {
                                   expiresAt: session.expiresAt)
         InterventionLog.voidSession(sessionID: session.id, in: modelContext)
         modelContext.delete(session)
-        NotificationManager.shared.cancelSessionReminders()
+        NotificationManager.shared.cancelSessionReminders(sessionID: session.id)
         LiveActivityManager.end()
         WidgetSessionStore.clear()
         if let spot = spots.first(where: { $0.zoneCode == session.zoneCode }) {
@@ -1114,7 +1160,7 @@ struct HomeView: View {
         recentZonesCSV = recentZones.filter { $0 != session.zoneCode }.joined(separator: ",")
         matchedSpot = nil
         zoneCode = ""
-        showPass = false
+        passTarget = nil
         manualZoneEntry = true
         recomputeVerdict()
         syncProtection()
@@ -1137,6 +1183,7 @@ struct HomeView: View {
         modelContext.insert(session)
         voidedBackup = nil
         NotificationManager.shared.scheduleExpiryReminders(
+            sessionID: session.id,
             zoneText: zoneLabel(session.zoneCode, operator: session.parkingOperator),
             expiresAt: session.expiresAt)
         LiveActivityManager.start(zoneCode: session.zoneCode, plate: session.plate,
@@ -1146,7 +1193,7 @@ struct HomeView: View {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         recomputeVerdict()
         syncProtection()
-        showPass = true
+        passTarget = session
     }
 
     // MARK: - Pipeline (§8)
@@ -1156,6 +1203,7 @@ struct HomeView: View {
         manualZoneEntry = false
         payAnyway = false
         operatorOverridden = false
+        payingSecondTicket = false
         hours = max(1, defaultHours)
         location.requestOneShot()
         recomputeVerdict()
@@ -1164,7 +1212,9 @@ struct HomeView: View {
         syncProtection()
         // Keep the widget in step with the truth: refresh it while a session
         // runs, take the meter off the lock screen and widget once it's over.
-        if let session = activeSession {
+        if let session = soonestActiveSession {
+            // Two tickets? The lock screen tracks the one expiring first —
+            // that's the urgent one.
             WidgetSessionStore.save(zoneCode: session.zoneCode, plate: session.plate,
                                     startedAt: session.startedAt, expiresAt: session.expiresAt)
         } else {
@@ -1182,7 +1232,7 @@ struct HomeView: View {
                                       startedAt: demo.startedAt, expiresAt: demo.expiresAt)
             WidgetSessionStore.save(zoneCode: demo.zoneCode, plate: demo.plate,
                                     startedAt: demo.startedAt, expiresAt: demo.expiresAt)
-            showPass = true
+            passTarget = demo
         }
     }
 
@@ -1351,14 +1401,16 @@ struct HomeView: View {
         haptic.notificationOccurred(.success)
 
         let now = Date.now
-        if extending, let session = activeSession {
+        if extending, let session = extendTarget {
             // A fired expiry warning followed by this extend = a likely save.
             InterventionLog.resolveExtend(sessionID: session.id, at: now,
                                           fineAED: session.parkingOperator.assumedFineAED,
                                           in: modelContext)
             session.extend()
             extending = false
+            NotificationManager.shared.extendTargetSessionID = nil
             NotificationManager.shared.scheduleExpiryReminders(
+                sessionID: session.id,
                 zoneText: zoneLabel(session.zoneCode, operator: session.parkingOperator),
                 expiresAt: session.expiresAt)
             logExpiryIntervention(for: session, now: now)
@@ -1392,7 +1444,9 @@ struct HomeView: View {
         NotificationManager.shared.cancelMorningReminder()
         InterventionLog.discardUnfired(kinds: [.unpaidNag, .morningFreeToPaid],
                                        in: modelContext, now: now)
+        payingSecondTicket = false
         NotificationManager.shared.scheduleExpiryReminders(
+            sessionID: session.id,
             zoneText: zoneLabel(session.zoneCode, operator: session.parkingOperator),
             expiresAt: session.expiresAt)
         logExpiryIntervention(for: session, now: now)
@@ -1400,7 +1454,7 @@ struct HomeView: View {
                                   startedAt: session.startedAt, expiresAt: session.expiresAt)
         WidgetSessionStore.save(zoneCode: session.zoneCode, plate: session.plate,
                                 startedAt: session.startedAt, expiresAt: session.expiresAt)
-        showPass = true
+        passTarget = session
     }
 
     /// Mirrors scheduleExpiryReminders into the log. The −10 min warning and the

@@ -143,6 +143,7 @@ struct SettingsView: View {
                                                       startedAt: demo.startedAt,
                                                       expiresAt: demo.expiresAt)
                             NotificationManager.shared.scheduleExpiryReminders(
+                                sessionID: demo.id,
                                 zoneText: zoneLabel(demo.zoneCode, operator: .parkin),
                                 expiresAt: demo.expiresAt)
                         }

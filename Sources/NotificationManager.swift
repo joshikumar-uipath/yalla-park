@@ -93,25 +93,36 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     /// `zoneText` is the READY display label ("Zone 318C", "Sharjah Parking")
     /// — callers format it with zoneLabel(_:operator:) so zone-less regions
-    /// never read "via Parkin app" here.
-    func scheduleExpiryReminders(zoneText: String, expiresAt: Date) {
-        cancelSessionReminders()
+    /// never read "via Parkin app" here. Identifiers are PER SESSION so two
+    /// parallel tickets (multi-zone parking) each keep their own pair;
+    /// re-scheduling the same session replaces cleanly via identical IDs.
+    func scheduleExpiryReminders(sessionID: UUID, zoneText: String, expiresAt: Date) {
         guard remindExpiry else { return }
-        schedule(id: ID.expirySoon,
+        let userInfo: [AnyHashable: Any] = ["sessionID": sessionID.uuidString]
+        schedule(id: "\(ID.expirySoon)-\(sessionID.uuidString)",
                  title: "Parking expires in 10 minutes",
                  body: "\(zoneText) — extend from here if you're staying.",
                  at: expiresAt.addingTimeInterval(-ParkinRules.expiryWarningLead),
-                 category: CategoryID.expiry)
-        schedule(id: ID.expired,
+                 category: CategoryID.expiry, userInfo: userInfo)
+        schedule(id: "\(ID.expired)-\(sessionID.uuidString)",
                  title: "Parking expired!",
                  body: "\(zoneText) — your session has ended. Extend now to avoid a fine.",
                  at: expiresAt,
-                 category: CategoryID.expiry)
+                 category: CategoryID.expiry, userInfo: userInfo)
     }
 
-    func cancelSessionReminders() {
-        center.removePendingNotificationRequests(withIdentifiers: [ID.expirySoon, ID.expired])
+    func cancelSessionReminders(sessionID: UUID) {
+        center.removePendingNotificationRequests(withIdentifiers: [
+            "\(ID.expirySoon)-\(sessionID.uuidString)",
+            "\(ID.expired)-\(sessionID.uuidString)",
+            // Legacy fixed IDs from pre-multi-ticket builds.
+            ID.expirySoon, ID.expired,
+        ])
     }
+
+    /// Which session an "+1 hour" notification action was about — read by the
+    /// extend flow so the RIGHT ticket gets extended when two are running.
+    var extendTargetSessionID: UUID?
 
     func cancelAll() {
         center.removeAllPendingNotificationRequests()
@@ -129,7 +140,8 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     // MARK: - Plumbing
 
-    private func schedule(id: String, title: String, body: String, at date: Date, category: String? = nil) {
+    private func schedule(id: String, title: String, body: String, at date: Date,
+                          category: String? = nil, userInfo: [AnyHashable: Any]? = nil) {
         guard date > .now else { return }
         Task {
             guard await ensureAuthorized() else { return }
@@ -142,6 +154,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             // worthless — field report: nag silenced by an on-call Focus.
             content.interruptionLevel = .timeSensitive
             if let category { content.categoryIdentifier = category }
+            if let userInfo { content.userInfo = userInfo }
             let components = Calendar.current.dateComponents(
                 [.year, .month, .day, .hour, .minute, .second], from: date)
             let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
@@ -168,6 +181,11 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         DispatchQueue.main.async {
+            // Remember which session the notification was about, so a
+            // multi-ticket extend targets the right one.
+            if let idString = response.notification.request.content.userInfo["sessionID"] as? String {
+                self.extendTargetSessionID = UUID(uuidString: idString)
+            }
             if response.actionIdentifier == ActionID.extend1h {
                 if let handler = self.onExtendRequested { handler() } else { self.pendingAction = .extend }
             } else {

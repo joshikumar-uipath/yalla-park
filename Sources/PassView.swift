@@ -123,6 +123,7 @@ struct PassScreen: View {
                         showConfirm = false
                         session.extend()
                         NotificationManager.shared.scheduleExpiryReminders(
+                            sessionID: session.id,
                             zoneText: zoneLabel(session.zoneCode, operator: session.parkingOperator),
                             expiresAt: session.expiresAt)
                         LiveActivityManager.update(startedAt: session.startedAt,
