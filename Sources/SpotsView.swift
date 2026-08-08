@@ -1,37 +1,68 @@
 import SwiftUI
 import SwiftData
 
-/// My Spots: two segments. TICKETS — every session as a ticket in the app's
-/// own stub language (live coral mini-pass for the active one, torn-off stub
-/// rows for the past; Parkin's tickets screen was the inspiration, not the
-/// design). SPOTS — the remembered places, unchanged.
+/// My Spots: ONE list — places, with their tickets inside. Each spot row
+/// expands to its tickets (live coral mini-pass first, then expired stubs);
+/// collapsed, a small green ticket badge on the right says "paid & active
+/// here right now". Sessions in zones without a saved spot gather under
+/// "Other tickets".
 struct SpotsView: View {
     @Query(sort: \Spot.lastParkedAt, order: .reverse) private var spots: [Spot]
     @Query(sort: \Session.startedAt, order: .reverse) private var sessions: [Session]
     @Query private var interventions: [InterventionEvent]
     @Environment(\.modelContext) private var modelContext
 
-    @State private var segment = 0
+    @State private var expandedSpots: Set<UUID> = []
+    @State private var otherExpanded = false
     @State private var passSession: Session?
     @State private var fineTarget: Session?
     @State private var fineAmountText = ""
 
-    private var activeSessions: [Session] { sessions.filter(\.isActive) }
-    private var pastSessions: [Session] { sessions.filter { !$0.isActive } }
+    /// Sessions belonging to a spot — matched by zone code.
+    private func spotSessions(_ spot: Spot) -> [Session] {
+        guard !spot.zoneCode.isEmpty else { return [] }
+        return sessions.filter { $0.zoneCode == spot.zoneCode }
+    }
+
+    /// Sessions whose zone has no saved spot (deleted spots, Parkin-app
+    /// payments with no zone).
+    private var orphanSessions: [Session] {
+        let knownZones = Set(spots.map(\.zoneCode).filter { !$0.isEmpty })
+        return sessions.filter { $0.zoneCode.isEmpty || !knownZones.contains($0.zoneCode) }
+    }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                Picker("View", selection: $segment) {
-                    Text("Tickets").tag(0)
-                    Text("Spots").tag(1)
+            Group {
+                if spots.isEmpty && sessions.isEmpty {
+                    ContentUnavailableView(
+                        "No spots yet",
+                        systemImage: "mappin.slash",
+                        description: Text("Park somewhere and pay once — the place is remembered here, with every ticket tucked inside it.")
+                    )
+                } else {
+                    List {
+                        if !spots.isEmpty {
+                            Section {
+                                ForEach(spots) { spot in
+                                    spotGroup(spot)
+                                }
+                                .onDelete { indexSet in
+                                    for index in indexSet { modelContext.delete(spots[index]) }
+                                }
+                            } header: {
+                                Text("My Spots")
+                            } footer: {
+                                Text("Tap a spot for its tickets. Got a fine anyway? Swipe a ticket and tell us — it keeps the savings numbers honest.")
+                            }
+                        }
+                        if !orphanSessions.isEmpty {
+                            Section {
+                                otherTicketsGroup
+                            }
+                        }
+                    }
                 }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                .padding(.top, 6)
-                .padding(.bottom, 2)
-
-                if segment == 0 { ticketsList } else { spotsList }
             }
             .navigationTitle("My Spots")
             .alert("Report a fine", isPresented: fineAlertShown) {
@@ -42,7 +73,6 @@ struct SpotsView: View {
             } message: {
                 Text("This removes any \"likely saved\" credit for this session, so the ledger never overstates.")
             }
-            // The full pass — same screen as Home's, with extend on board.
             .sheet(item: $passSession) { session in
                 PassScreen(session: session, onClose: { passSession = nil })
                     .presentationDragIndicator(.visible)
@@ -50,46 +80,138 @@ struct SpotsView: View {
         }
     }
 
-    // MARK: - Tickets
+    // MARK: - Spot row (expandable)
 
-    @ViewBuilder
-    private var ticketsList: some View {
-        if sessions.isEmpty {
-            ContentUnavailableView(
-                "No tickets yet",
-                systemImage: "ticket",
-                description: Text("Pay once from the map and your ticket lives here — live countdown while it runs, stub for the record after.")
-            )
-        } else {
-            List {
-                if !activeSessions.isEmpty {
-                    Section {
-                        ForEach(activeSessions) { session in
-                            ActiveTicketCard(session: session) { passSession = session }
-                                .listRowBackground(Color.clear)
-                                .listRowSeparator(.hidden)
-                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
-                        }
-                    } header: {
-                        Text("Active now")
+    private func spotGroup(_ spot: Spot) -> some View {
+        let tickets = spotSessions(spot)
+        let active = tickets.filter(\.isActive)
+        let past = tickets.filter { !$0.isActive }
+        return DisclosureGroup(isExpanded: expandedBinding(for: spot.id)) {
+            if tickets.isEmpty {
+                Text("No tickets here yet.")
+                    .font(.system(size: 13.5))
+                    .foregroundStyle(Theme.labelTertiary)
+            }
+            ForEach(active) { session in
+                ActiveTicketCard(session: session) { passSession = session }
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
+            }
+            ForEach(past.prefix(20)) { session in
+                pastTicketRow(session)
+            }
+        } label: {
+            spotLabel(spot, hasActiveTicket: !active.isEmpty)
+        }
+        .contextMenu {
+            ForEach(SpotDesignation.allCases, id: \.self) { designation in
+                if spot.designation != designation {
+                    Button {
+                        spot.designation = designation
+                    } label: {
+                        Label("Mark as \(designation.label) — never remind here",
+                              systemImage: designation.icon)
                     }
                 }
-                if !pastSessions.isEmpty {
-                    Section {
-                        ForEach(pastSessions.prefix(50)) { session in
-                            pastTicketRow(session)
-                        }
-                    } header: {
-                        Text("Torn off — past tickets")
-                    } footer: {
-                        Text("Got a fine anyway? Swipe a ticket and tell us — it keeps the savings numbers honest.")
-                    }
+            }
+            if spot.designation != nil {
+                Button {
+                    spot.designation = nil
+                } label: {
+                    Label("Remove designation", systemImage: "bell.fill")
                 }
             }
         }
     }
 
-    /// One past session as a receipt stub: day punch, zone, times, rough fee.
+    private func spotLabel(_ spot: Spot, hasActiveTicket: Bool) -> some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(spot.name)
+                        .font(.system(size: 16, weight: .semibold))
+                    if let designation = spot.designation {
+                        Label(designation.label, systemImage: designation.icon)
+                            .font(.system(size: 11, weight: .bold))
+                            .padding(.vertical, 2).padding(.horizontal, 7)
+                            .background(Color(hex: 0xEFEDE7), in: Capsule())
+                            .foregroundStyle(Theme.labelSecondary)
+                    }
+                }
+                HStack(spacing: 6) {
+                    Text(spot.zoneKind == .free ? "Free parking" : "Zone \(spot.zoneCode)")
+                    Text("·")
+                    Text("parked \(spot.timesParked)×")
+                    Text("·")
+                    Text(spot.lastParkedAt.formatted(.relative(presentation: .named)))
+                }
+                .font(.system(size: 13.5))
+                .foregroundStyle(Theme.labelSecondary)
+            }
+            Spacer(minLength: 6)
+            if hasActiveTicket {
+                // The "paid & running here" badge — a small live ticket.
+                Image(systemName: "ticket.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.vertical, 5)
+                    .padding(.horizontal, 8)
+                    .background(Theme.success, in: Capsule())
+                    .accessibilityLabel("Active ticket here")
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func expandedBinding(for id: UUID) -> Binding<Bool> {
+        Binding(get: { expandedSpots.contains(id) },
+                set: { open in
+                    if open { expandedSpots.insert(id) } else { expandedSpots.remove(id) }
+                })
+    }
+
+    // MARK: - Other tickets (no saved spot)
+
+    private var otherTicketsGroup: some View {
+        let active = orphanSessions.filter(\.isActive)
+        let past = orphanSessions.filter { !$0.isActive }
+        return DisclosureGroup(isExpanded: $otherExpanded) {
+            ForEach(active) { session in
+                ActiveTicketCard(session: session) { passSession = session }
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
+            }
+            ForEach(past.prefix(20)) { session in
+                pastTicketRow(session)
+            }
+        } label: {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Other tickets")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("Zones without a saved spot")
+                        .font(.system(size: 13.5))
+                        .foregroundStyle(Theme.labelSecondary)
+                }
+                Spacer(minLength: 6)
+                if !active.isEmpty {
+                    Image(systemName: "ticket.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.vertical, 5)
+                        .padding(.horizontal, 8)
+                        .background(Theme.success, in: Capsule())
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    // MARK: - Ticket rows
+
+    /// A finished session as a torn-off stub, stamped expired.
     private func pastTicketRow(_ session: Session) -> some View {
         HStack(spacing: 10) {
             Text(session.startedAt.formatted(.dateTime.day().month(.abbreviated)).uppercased())
@@ -101,7 +223,7 @@ struct SpotsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(zoneLabel(session.zoneCode, operator: session.parkingOperator))
-                        .font(.system(size: 15.5, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                     if sessionFined(session) {
                         Text("Fined")
                             .font(.system(size: 11, weight: .bold))
@@ -110,7 +232,7 @@ struct SpotsView: View {
                             .foregroundStyle(Theme.coral)
                     }
                 }
-                Text("\(session.startedAt.formatted(date: .omitted, time: .shortened))–\(session.expiresAt.formatted(date: .omitted, time: .shortened)) · \(session.durationHours)h\(session.extendedCount > 0 ? " · extended ×\(session.extendedCount)" : "")")
+                Text("\(session.startedAt.formatted(date: .omitted, time: .shortened)) · \(session.durationHours)h\(session.extendedCount > 0 ? " · extended ×\(session.extendedCount)" : "")")
                     .font(.system(size: 12.5))
                     .foregroundStyle(Theme.labelSecondary)
             }
@@ -122,9 +244,7 @@ struct SpotsView: View {
                         .monospacedDigit()
                         .foregroundStyle(Theme.labelPrimary)
                 }
-                Text(session.paidViaParkinApp
-                     ? "Parkin app"
-                     : (session.parkingOperator == .parkin ? "SMS 7275" : session.parkingOperator.label))
+                Text("Expired \(session.expiresAt.formatted(date: .omitted, time: .shortened))")
                     .font(.system(size: 10.5, weight: .semibold))
                     .foregroundStyle(Theme.labelTertiary)
             }
@@ -152,71 +272,6 @@ struct SpotsView: View {
         default:
             return session.parkingOperator.estimatedRateAED(zone: session.zoneCode)
                 .map { $0 * session.durationHours }
-        }
-    }
-
-    // MARK: - Spots (unchanged list, its own segment)
-
-    @ViewBuilder
-    private var spotsList: some View {
-        if spots.isEmpty {
-            ContentUnavailableView(
-                "No spots yet",
-                systemImage: "mappin.slash",
-                description: Text("Park somewhere and pay once — the zone is remembered and auto-filled next time.")
-            )
-        } else {
-            List {
-                Section("Remembered places") {
-                    ForEach(spots) { spot in
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack(spacing: 6) {
-                                Text(spot.name)
-                                    .font(.system(size: 16, weight: .semibold))
-                                if let designation = spot.designation {
-                                    Label(designation.label, systemImage: designation.icon)
-                                        .font(.system(size: 11, weight: .bold))
-                                        .padding(.vertical, 2).padding(.horizontal, 7)
-                                        .background(Color(hex: 0xEFEDE7), in: Capsule())
-                                        .foregroundStyle(Theme.labelSecondary)
-                                }
-                            }
-                            HStack(spacing: 6) {
-                                Text(spot.zoneKind == .free ? "Free parking" : "Zone \(spot.zoneCode)")
-                                Text("·")
-                                Text("parked \(spot.timesParked)×")
-                                Text("·")
-                                Text(spot.lastParkedAt.formatted(.relative(presentation: .named)))
-                            }
-                            .font(.system(size: 13.5))
-                            .foregroundStyle(Theme.labelSecondary)
-                        }
-                        .padding(.vertical, 2)
-                        .contextMenu {
-                            ForEach(SpotDesignation.allCases, id: \.self) { designation in
-                                if spot.designation != designation {
-                                    Button {
-                                        spot.designation = designation
-                                    } label: {
-                                        Label("Mark as \(designation.label) — never remind here",
-                                              systemImage: designation.icon)
-                                    }
-                                }
-                            }
-                            if spot.designation != nil {
-                                Button {
-                                    spot.designation = nil
-                                } label: {
-                                    Label("Remove designation", systemImage: "bell.fill")
-                                }
-                            }
-                        }
-                    }
-                    .onDelete { indexSet in
-                        for index in indexSet { modelContext.delete(spots[index]) }
-                    }
-                }
-            }
         }
     }
 
