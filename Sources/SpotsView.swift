@@ -208,11 +208,9 @@ struct SpotsView: View {
             Spacer(minLength: 6)
             if liveTicket != nil {
                 // Paid & running here — tap the row to open the pass.
-                Image(systemName: "ticket.fill")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(.vertical, 5)
-                    .padding(.horizontal, 8)
+                TicketGlyph(width: 17, tint: .white, perforation: Theme.success)
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 9)
                     .background(Theme.success, in: Capsule())
                     .accessibilityLabel("Active ticket here")
             }
@@ -401,7 +399,9 @@ struct ExpiredTicketCard: View {
 
     var body: some View {
             VStack(alignment: .leading, spacing: 0) {
-                HStack {
+                HStack(spacing: 7) {
+                    TicketGlyph(width: 15, tint: .white.opacity(0.95),
+                                perforation: Color(hex: 0x8E8A84))
                     Text("YALLA PARK")
                     Spacer()
                     Text(zoneLabel(session.zoneCode, operator: session.parkingOperator).uppercased())
@@ -465,7 +465,8 @@ private struct ActiveTicketCard: View {
     var body: some View {
         Button(action: onOpen) {
             VStack(alignment: .leading, spacing: 0) {
-                HStack {
+                HStack(spacing: 7) {
+                    TicketGlyph(width: 15, tint: .white, perforation: Theme.coral)
                     Text("YALLA PARK")
                     Spacer()
                     Text(zoneLabel(session.zoneCode, operator: session.parkingOperator).uppercased())

@@ -291,8 +291,7 @@ struct HomeView: View {
     private func activePassChip(_ session: Session, extraCount: Int = 0) -> some View {
         Button { passTarget = session } label: {
             HStack(spacing: 7) {
-                Image(systemName: "ticket.fill")
-                    .font(.system(size: 12, weight: .bold))
+                TicketGlyph(width: 16, tint: .white, perforation: Theme.success)
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Text(countdownText(max(0, session.expiresAt.timeIntervalSince(context.date))))
                         .font(.system(size: 14, weight: .bold))
@@ -1066,9 +1065,7 @@ struct HomeView: View {
                     ForEach(others) { other in
                         Button { passTarget = other } label: {
                             HStack(spacing: 9) {
-                                Image(systemName: "ticket.fill")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundStyle(Theme.success)
+                                TicketGlyph(width: 16, tint: Theme.success, perforation: .white)
                                 Text(zoneLabel(other.zoneCode, operator: other.parkingOperator))
                                     .font(.system(size: 14.5, weight: .semibold))
                                     .foregroundStyle(Theme.labelPrimary)
