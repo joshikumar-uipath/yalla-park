@@ -839,6 +839,14 @@ struct HomeView: View {
                 .onSubmit {
                     zoneCode = ParkonicRules.normalizeZone(zoneCode)
                     zoneFieldFocused = false
+                    manualZoneEntry = false
+                }
+                // Same lesson as the RTA field (field-reported twice now):
+                // the field writes zoneCode, and visibility checks emptiness —
+                // so editing mode must pin the field open or the first typed
+                // character tears it out of the hierarchy.
+                .onChange(of: zoneFieldFocused) {
+                    if zoneFieldFocused { manualZoneEntry = true }
                 }
                 .onChange(of: zoneCode) {
                     zoneCode = zoneCode.replacingOccurrences(of: " ", with: "").uppercased()
@@ -1046,6 +1054,45 @@ struct HomeView: View {
                 .buttonStyle(PressScaleStyle())
             }
             .padding(.top, 16)
+
+            // Every OTHER running ticket, right here on Home (field request:
+            // two tickets were live but only My Spots showed the second).
+            let others = activeSessions.filter { $0.id != session.id }
+            if !others.isEmpty {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("Also running")
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(Theme.labelSecondary)
+                    ForEach(others) { other in
+                        Button { passTarget = other } label: {
+                            HStack(spacing: 9) {
+                                Image(systemName: "ticket.fill")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(Theme.success)
+                                Text(zoneLabel(other.zoneCode, operator: other.parkingOperator))
+                                    .font(.system(size: 14.5, weight: .semibold))
+                                    .foregroundStyle(Theme.labelPrimary)
+                                Spacer(minLength: 8)
+                                TimelineView(.periodic(from: .now, by: 1)) { context in
+                                    Text(countdownText(max(0, other.expiresAt.timeIntervalSince(context.date))))
+                                        .font(.system(size: 14.5, weight: .bold))
+                                        .monospacedDigit()
+                                        .foregroundStyle(Theme.labelPrimary)
+                                }
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(Theme.labelTertiary)
+                            }
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 13)
+                            .background(.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
+                        }
+                        .buttonStyle(PressScaleStyle())
+                    }
+                }
+                .padding(.top, 14)
+            }
 
             // Field reality (TestFlight): Parkin can reject the SMS ("Invalid
             // Zone") after the user already confirmed. Give them a way out —
