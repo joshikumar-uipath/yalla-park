@@ -173,6 +173,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
             // Same identifier replaces any pending request — no duplicate stacking (§15).
             try? await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+            Diag.log("notif_scheduled", ["id": id, "at": ISO8601DateFormatter().string(from: date)])
         }
     }
 
@@ -194,6 +195,8 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         DispatchQueue.main.async {
+            Diag.log("notif_tapped", ["id": response.notification.request.identifier,
+                                      "action": response.actionIdentifier])
             // Remember which session the notification was about, so a
             // multi-ticket extend targets the right one.
             if let idString = response.notification.request.content.userInfo["sessionID"] as? String {

@@ -112,6 +112,18 @@ struct SettingsView: View {
                     Text("Satellite view shows actual parking bays and lot layouts.")
                 }
 
+                Section {
+                    NavigationLink {
+                        DiagnosticsView()
+                    } label: {
+                        Label("Diagnostics log", systemImage: "stethoscope")
+                    }
+                } header: {
+                    Text("Troubleshooting")
+                } footer: {
+                    Text("A local record of what the app did — share it with the developer if something misbehaves. Nothing is sent anywhere on its own.")
+                }
+
                 Section("Automation") {
                     Button {
                         showGuide = true

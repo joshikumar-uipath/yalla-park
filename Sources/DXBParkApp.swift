@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 @Observable
 final class AppRouter {
@@ -48,6 +49,7 @@ struct DXBParkApp: App {
         if let container = try? ModelContainer(for: schema) { return container }
         // Store incompatible or corrupt: drop it and start fresh — losing local
         // history beats an unlaunchable app.
+        Diag.log("store_recovery_triggered")
         let support = URL.applicationSupportDirectory
         for name in ["default.store", "default.store-wal", "default.store-shm"] {
             try? FileManager.default.removeItem(at: support.appending(path: name))
@@ -64,6 +66,7 @@ struct DXBParkApp: App {
                 .preferredColorScheme(.light) // the M1 design language is warm-light
                 .onOpenURL { url in
                     guard url.scheme == "dxbpark" else { return }
+                    Diag.log("deeplink", ["host": url.host ?? url.path])
                     if url.host == "parked" || url.path.contains("parked") {
                         // From the Shortcuts automation, widget, or Siri
                         automationVerified = true // §13: setup success detected
@@ -80,6 +83,11 @@ struct DXBParkApp: App {
                     OnboardingView { hasOnboarded = true }
                 }
                 .task {
+                    let settings = await UNUserNotificationCenter.current().notificationSettings()
+                    Diag.log("app_open", [
+                        "ios": UIDevice.current.systemVersion,
+                        "notif_auth": settings.authorizationStatus.rawValue,
+                    ])
                     PlateStore.migrateIfNeeded()
                     DemoData.seedIfEmpty(in: container.mainContext)
                     NotificationManager.shared.onOpenParked = { [weak router] in

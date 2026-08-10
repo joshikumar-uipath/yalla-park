@@ -689,6 +689,7 @@ struct HomeView: View {
 
     /// Flip between operators by hand — for signs the community map got wrong.
     private func switchOperator(to newOperator: ParkingOperator) {
+        Diag.log("operator_switched", ["to": newOperator.rawValue])
         parkingOperator = newOperator
         operatorOverridden = true
         zoneCode = ""
@@ -1189,6 +1190,7 @@ struct HomeView: View {
                                   durationHours: session.durationHours,
                                   extendedCount: session.extendedCount,
                                   expiresAt: session.expiresAt)
+        Diag.log("session_voided", ["op": session.parkingOperator.rawValue])
         InterventionLog.voidSession(sessionID: session.id, in: modelContext)
         modelContext.delete(session)
         NotificationManager.shared.cancelSessionReminders(sessionID: session.id)
@@ -1215,6 +1217,7 @@ struct HomeView: View {
     /// credit revoked by the void stays revoked — under-counting a save is
     /// the honest direction.
     private func restoreVoidedPass(_ backup: VoidedPass) {
+        Diag.log("session_restored")
         let session = Session(plate: backup.plate, zoneCode: backup.zoneCode,
                               kind: ZoneKind(rawValue: backup.kindRaw) ?? .standard,
                               durationHours: backup.durationHours,
@@ -1339,6 +1342,12 @@ struct HomeView: View {
         }
         // District lookup: pre-fills the zone *number*; the sign supplies the letter.
         suggestedCommunity = ZoneLocator.community(at: coordinate)
+        Diag.log("detect", [
+            "lat": Diag.coarse(coordinate.latitude),
+            "lon": Diag.coarse(coordinate.longitude),
+            "community": suggestedCommunity?.number as Any,
+            "spot": matchedSpot != nil,
+        ])
         // Operator resolution — spot memory and a manual flip both outrank it.
         // Inside Dubai (community polygons hit): Parkin, or Parkonic for
         // JVC/DSO/Gardens. Outside Dubai: coarse emirate geofences.
@@ -1396,6 +1405,8 @@ struct HomeView: View {
 
     private func startPay() {
         extending = false
+        Diag.log("pay_started", ["op": parkingOperator.rawValue, "zone": zoneCode.uppercased(),
+                                 "hours": hours, "canSMS": MessageComposer.canSendText])
         ActivityLog.log(.smsPayStarted, label: zoneCode.uppercased(), in: modelContext)
         startComposerFlow()
     }
@@ -1427,19 +1438,26 @@ struct HomeView: View {
         if let www = URL(string: ParkinRules.parkinUniversalLink) { chain.append((www, true)) }
         func tryOpen(_ candidates: [(URL, Bool)]) {
             guard let (url, appOnly) = candidates.first else {
+                Diag.log("parkin_handoff", ["path": "safari"])
                 if let site = URL(string: ParkinRules.parkinWebsite) {
                     UIApplication.shared.open(site)
                 }
                 return
             }
             UIApplication.shared.open(url, options: appOnly ? [.universalLinksOnly: true] : [:]) { opened in
-                if !opened { tryOpen(Array(candidates.dropFirst())) }
+                if opened {
+                    Diag.log("parkin_handoff", ["path": url.absoluteString])
+                } else {
+                    tryOpen(Array(candidates.dropFirst()))
+                }
             }
         }
         tryOpen(chain)
     }
 
     private func confirmPaid() {
+        Diag.log("confirm_paid", ["op": parkingOperator.rawValue, "extending": extending,
+                                  "viaParkinApp": paidViaParkin])
         showConfirm = false
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)

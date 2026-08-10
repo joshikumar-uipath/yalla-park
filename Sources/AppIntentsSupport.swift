@@ -1,5 +1,6 @@
 import AppIntents
 import Foundation
+import UIKit
 
 /// "Hey Siri, I just parked" — opens the app straight into the parked flow (§12).
 struct ParkNowIntent: AppIntent {
@@ -41,7 +42,9 @@ struct CarParkedIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        // The automation fired — layer 1 is verified working.
+        // The automation fired — layer 1 is verified working. Locked state
+        // is the exact evidence the Fathima incident lacked.
+        Diag.log("intent_fired", ["locked": !UIApplication.shared.isProtectedDataAvailable])
         UserDefaults.standard.set(true, forKey: "automationVerified")
         NotificationManager.shared.fireParkedNudge()
         return .result()

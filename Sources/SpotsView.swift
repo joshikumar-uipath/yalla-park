@@ -351,6 +351,7 @@ struct SpotsView: View {
     private func submitFine() {
         guard let session = fineTarget else { return }
         let amount = Decimal(string: fineAmountText) ?? session.parkingOperator.assumedFineAED
+        Diag.log("fine_reported", ["op": session.parkingOperator.rawValue])
         InterventionLog.reportFine(sessionID: session.id, amountAED: amount, in: modelContext)
         fineTarget = nil
     }
