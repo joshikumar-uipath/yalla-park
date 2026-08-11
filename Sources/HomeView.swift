@@ -678,6 +678,18 @@ struct HomeView: View {
         }
     }
 
+    /// Curated tariff letters ∪ letters from zones the user has paid before.
+    private var zoneLetterChips: [String] {
+        var letters = ParkinRules.zoneLetters
+        for zone in recentZones {
+            let suffix = String(zone.drop(while: \.isNumber))
+            if suffix.count == 1, suffix.first!.isLetter, !letters.contains(suffix) {
+                letters.append(suffix)
+            }
+        }
+        return letters.sorted()
+    }
+
     private var payFootnote: String {
         switch parkingOperator {
         case .parkin: return "One tap — you press send in Messages"
@@ -718,10 +730,11 @@ struct HomeView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.labelTertiary)
 
-                // Letters seen in the wild: A–D street bands, F (Al Sufouh,
-                // field-confirmed 382F), W (lots, e.g. 318W/248W).
+                // Curated letters (ParkinRules) plus any letter this user has
+                // actually paid — a chip the field proves is never missing
+                // again (J was, despite the user's own 393J ticket).
                 HStack(spacing: 7) {
-                    ForEach(["A", "B", "C", "D", "F", "W"], id: \.self) { letter in
+                    ForEach(zoneLetterChips, id: \.self) { letter in
                         Button {
                             zoneCode = "\(community.number)\(letter)"
                             UISelectionFeedbackGenerator().selectionChanged()
