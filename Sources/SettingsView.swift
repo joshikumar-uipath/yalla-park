@@ -58,8 +58,10 @@ struct SettingsView: View {
                             }
                         }
                         .signInWithAppleButtonStyle(.black)
-                        .frame(height: 44)
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                        .frame(height: 48)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
+                        .listRowBackground(Color.clear)
                     } else {
                         LabeledContent("Signed in",
                                        value: appleUserName.isEmpty ? "with Apple" : appleUserName)
@@ -168,7 +170,7 @@ struct SettingsView: View {
                     HStack {
                         Text("Yalla Park")
                         Spacer()
-                        Text("0.10.0 (64)")
+                        Text("0.10.1 (65)")
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }

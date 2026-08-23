@@ -397,18 +397,41 @@ struct SavingsLedgerView: View {
         }
     }
 
-    /// The signed-out invitation: the total above is free; the story is the
-    /// reward for signing in. No wall — the whole protection app works
-    /// without it.
+    /// The signed-out invitation, drawn as an UNCLAIMED PASS in the page's
+    /// own ticket anatomy: brand mark, a ghosted mini-lot teasing the locked
+    /// year, a perforation with tear notches — and the Apple button below
+    /// the tear line, the stub you claim. No wall — the whole protection
+    /// app works without it.
     private var signInCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Your year, remembered")
-                .font(.system(size: 17, weight: .bold))
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                TicketGlyph(width: 16, tint: theme.ticketA, perforation: .white)
+                Text("YOUR YEAR, REMEMBERED")
+                    .font(.system(size: 11.5, weight: .heavy))
+                    .kerning(1.2)
+                    .foregroundStyle(theme.secCap)
+            }
+
+            Text("The number above is free. The story behind it — every month, every ticket, every place — appears when you sign in.")
+                .font(.system(size: 14.5, weight: .medium))
                 .foregroundStyle(theme.stubText)
-            Text("Sign in and every month, ticket, and place behind that number stays yours — the full year lot, torn-off receipts, and your savings map.")
-                .font(.system(size: 13.5))
-                .foregroundStyle(Color(hex: 0x7C7160))
+                .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 11)
+
+            ghostLot
+                .padding(.top, 16)
+
+            // The tear line — page-colored notches bite the card edges.
+            DashedRule(color: theme.stubDash, thickness: 2)
+                .overlay(alignment: .leading) {
+                    Circle().fill(theme.page).frame(width: 22, height: 22).offset(x: -29)
+                }
+                .overlay(alignment: .trailing) {
+                    Circle().fill(theme.page).frame(width: 22, height: 22).offset(x: 29)
+                }
+                .padding(.vertical, 17)
+
             SignInWithAppleButton(.signIn) { request in
                 request.requestedScopes = [.fullName]
             } onCompletion: { result in
@@ -418,16 +441,42 @@ struct SavingsLedgerView: View {
                 }
             }
             .signInWithAppleButtonStyle(.black)
-            .frame(height: 46)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .frame(height: 50)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
             Text("No account, no server — your identity stays between you and Apple.")
                 .font(.system(size: 11.5))
                 .foregroundStyle(theme.secCap)
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
+                .padding(.top, 11)
         }
-        .padding(16)
+        .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(theme.stub, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(theme.stub, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .padding(.top, 20)
+    }
+
+    /// Six dimmed bays with one faint car — the year lot, waiting behind
+    /// the sign-in. A whisper of what unlocks, in the lot's own vocabulary.
+    private var ghostLot: some View {
+        HStack(spacing: 9) {
+            ForEach(0..<6, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 7)
+                    .strokeBorder(Color(hex: 0xDCD4C6),
+                                  style: StrokeStyle(lineWidth: 1.6, dash: [4, 3]))
+                    .frame(height: 46)
+                    .overlay {
+                        if index == 1 {
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(LinearGradient(colors: [Color(hex: 0xBFE5D2), Color(hex: 0xA6D8BF)],
+                                                     startPoint: .top, endPoint: .bottom))
+                                .frame(width: 19, height: 33)
+                        }
+                    }
+            }
+        }
+        .accessibilityHidden(true)
     }
 
     /// Matches the app's section labels: 13pt semibold, sentence case.
