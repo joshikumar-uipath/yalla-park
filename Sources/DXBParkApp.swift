@@ -89,7 +89,6 @@ struct DXBParkApp: App {
                         "notif_auth": settings.authorizationStatus.rawValue,
                     ])
                     PlateStore.migrateIfNeeded()
-                    DemoData.seedIfEmpty(in: container.mainContext)
                     NotificationManager.shared.onOpenParked = { [weak router] in
                         router?.openParked()
                     }

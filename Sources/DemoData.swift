@@ -18,18 +18,6 @@ enum DemoData {
         #endif
     }
 
-    /// Presentation guarantee for TestFlight: an empty ledger auto-fills with
-    /// six months of demo history at launch, so the dashboard never demos as
-    /// zeros. Real usage accrues on top; "Clear stats & history" + relaunch
-    /// reseeds. Never runs on App Store builds.
-    static func seedIfEmpty(in context: ModelContext) {
-        guard isTestBuild else { return }
-        let existing = (try? context.fetchCount(FetchDescriptor<InterventionEvent>(
-            predicate: #Predicate { $0.decisive }))) ?? 0
-        guard existing == 0 else { return }
-        seedSixMonths(in: context)
-    }
-
     static func seedSixMonths(in context: ModelContext, now: Date = .now,
                               calendar: Calendar = .current) {
         guard let currentMonth = calendar.dateInterval(of: .month, for: now)?.start

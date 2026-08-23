@@ -103,7 +103,7 @@ struct SavingsTheme {
 
 /// One month-bay of the year lot: a parked car means no fine that month;
 /// future months sit as empty dotted bays.
-private struct MonthBay {
+struct MonthBay {
     let label: String
     let fined: Bool
     let future: Bool
@@ -171,6 +171,74 @@ private enum DemoYear {
 
     static let monthNames = ["January", "February", "March", "April", "May", "June",
                              "July", "August", "September", "October", "November", "December"]
+
+    static var model: YearModel { YearModel(bays: bays, receipts: receipts) }
+}
+
+/// One year of lot bays + per-month receipt rows — the shape both the demo
+/// (Presenter Mode) and the REAL ledger render through.
+struct YearModel {
+    let bays: [MonthBay]
+    let receipts: [[(String, String, String, Bool)]]
+}
+
+/// The real thing: the current calendar year built from the intervention
+/// ledger. Months with a fine show the ✕; months with saves park a car;
+/// months with nothing (or still ahead) sit as dotted empty bays.
+enum RealYear {
+    static let monthAbbrev = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+                              "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+
+    static func model(events: [InterventionEvent],
+                      calendar: Calendar = .current, now: Date = .now) -> YearModel {
+        let year = calendar.component(.year, from: now)
+        let currentMonth = calendar.component(.month, from: now)
+        var bays: [MonthBay] = []
+        var receipts: [[(String, String, String, Bool)]] = []
+        for month in 1...12 {
+            let inMonth = events.filter { event in
+                let date = event.resolvedAt ?? event.firedAt
+                return calendar.component(.year, from: date) == year
+                    && calendar.component(.month, from: date) == month
+            }
+            let saves = inMonth.filter(\.decisive)
+                .sorted { ($0.resolvedAt ?? $0.firedAt) < ($1.resolvedAt ?? $1.firedAt) }
+            let fines = inMonth.filter { $0.outcome == .gotFined }
+            bays.append(MonthBay(
+                label: monthAbbrev[month - 1],
+                fined: !fines.isEmpty,
+                future: month > currentMonth || (saves.isEmpty && fines.isEmpty),
+                tone: (month - 1) % 3))
+            var rows: [(String, String, String, Bool)] = []
+            for save in saves {
+                let date = save.resolvedAt ?? save.firedAt
+                rows.append((punch(date, calendar: calendar), title(for: save),
+                             "+\(formatAED(save.estimatedFineAvoidedAED))", false))
+            }
+            for fine in fines {
+                rows.append((punch(fine.finedAt ?? fine.firedAt, calendar: calendar),
+                             "One fine got through",
+                             "−\(formatAED(fine.reportedFineAED ?? 0))", true))
+            }
+            receipts.append(rows)
+        }
+        return YearModel(bays: bays, receipts: receipts)
+    }
+
+    private static func punch(_ date: Date, calendar: Calendar) -> String {
+        let day = calendar.component(.day, from: date)
+        let month = calendar.component(.month, from: date)
+        return "\(day) \(monthAbbrev[month - 1])"
+    }
+
+    private static func title(for event: InterventionEvent) -> String {
+        let zone = event.zoneCode.isEmpty ? "paid zone" : "Zone \(event.zoneCode)"
+        switch event.kind {
+        case .morningFreeToPaid: return "Paid \(zone) before charging began"
+        case .unpaidNag: return "Paid \(zone) after the nag"
+        case .expiryWarning: return "Extended \(zone) before it lapsed"
+        }
+    }
 }
 
 struct SavingsLedgerView: View {
@@ -178,6 +246,11 @@ struct SavingsLedgerView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \Session.startedAt, order: .reverse) private var sessions: [Session]
     @Query(sort: \InterventionEvent.firedAt, order: .reverse) private var events: [InterventionEvent]
+    @Query private var spots: [Spot]
+
+    /// Presenter Mode (hidden Settings unlock): the hand-made demo year for
+    /// live demos. Everyone else — and normal days — sees the REAL ledger.
+    @AppStorage("presenterMode") private var presenterMode = false
 
     @State private var carsParked = false
     /// Entrance animations run exactly once per presentation — onAppear can
@@ -199,6 +272,43 @@ struct SavingsLedgerView: View {
     /// tray must never disagree.
     private var activityCounts: [ActivityKind: Int] { ActivityLog.counts(in: modelContext) }
 
+    private var yearModel: YearModel {
+        presenterMode ? DemoYear.model : RealYear.model(events: events)
+    }
+
+    /// Real map pins: the user's top save-zones located via their remembered
+    /// spots, plus the first reported fine. Empty when nothing is locatable.
+    private var realPlaces: [SavedPlace] {
+        let zoneColors: [UInt32] = [0xD6431A, 0x0E7D57, 0xB98214, 0xE8752C]
+        let decisive = events.filter { $0.decisive && !$0.zoneCode.isEmpty }
+        let byZone = Dictionary(grouping: decisive, by: \.zoneCode)
+            .sorted { $0.value.count > $1.value.count }
+        var places: [SavedPlace] = []
+        for (index, entry) in byZone.prefix(4).enumerated() {
+            guard let spot = spots.first(where: { $0.zoneCode == entry.key }) else { continue }
+            let total = entry.value.reduce(Decimal(0)) { $0 + $1.estimatedFineAvoidedAED }
+            places.append(SavedPlace(
+                title: "Zone \(entry.key)",
+                sub: "~\(formatAED(total)) · \(entry.value.count) save\(entry.value.count == 1 ? "" : "s")",
+                color: Color(hex: zoneColors[index % zoneColors.count]),
+                coordinate: spot.coordinate,
+                tagBelow: index % 2 == 1))
+        }
+        if let fine = events.first(where: { $0.outcome == .gotFined && !$0.zoneCode.isEmpty }),
+           let spot = spots.first(where: { $0.zoneCode == fine.zoneCode }) {
+            places.append(SavedPlace(
+                title: "\(fine.zoneCode) · fine",
+                sub: "−\(formatAED(fine.reportedFineAED ?? 0))",
+                color: Color(hex: 0x6E1F09),
+                coordinate: spot.coordinate, tagBelow: true))
+        }
+        return places
+    }
+
+    private var homeCoordinate: CLLocationCoordinate2D? {
+        spots.first(where: { $0.designation == .home })?.coordinate
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
@@ -207,7 +317,7 @@ struct SavingsLedgerView: View {
                     .padding(.top, 6)
 
                 sectionCap("Your year · tap a month")
-                LotView(theme: theme, bays: DemoYear.bays, selected: selectedMonth,
+                LotView(theme: theme, bays: yearModel.bays, selected: selectedMonth,
                         parked: carsParked, reduceMotion: reduceMotion) { index in
                     withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8)) {
                         selectedMonth = (selectedMonth == index) ? nil : index
@@ -220,8 +330,15 @@ struct SavingsLedgerView: View {
                     receiptsCard(forMonth: month)
                 }
 
-                sectionCap("Where it came from — literally")
-                StreetMapCard(quietCount: activityCounts[.quietArrival] ?? 0)
+                if presenterMode {
+                    sectionCap("Where it came from — literally")
+                    StreetMapCard(quietCount: activityCounts[.quietArrival] ?? 0,
+                                  places: DemoPlaces.list, home: DemoPlaces.home)
+                } else if !realPlaces.isEmpty {
+                    sectionCap("Where it came from — literally")
+                    StreetMapCard(quietCount: activityCounts[.quietArrival] ?? 0,
+                                  places: realPlaces, home: homeCoordinate)
+                }
 
                 countsLine()
                     .padding(.top, 18)
@@ -243,6 +360,18 @@ struct SavingsLedgerView: View {
                 Text("Savings")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(theme.pageText)
+            }
+            if presenterMode {
+                // Never mistake the demo year for the real one mid-meeting.
+                ToolbarItem(placement: .topBarTrailing) {
+                    Text("PRESENTER")
+                        .font(.system(size: 9, weight: .heavy))
+                        .kerning(1)
+                        .padding(.vertical, 3)
+                        .padding(.horizontal, 7)
+                        .background(theme.warn.opacity(0.25), in: Capsule())
+                        .foregroundStyle(Color(hex: 0x8A6510))
+                }
             }
         }
         .onAppear {
@@ -280,7 +409,7 @@ struct SavingsLedgerView: View {
     }
 
     private func receiptsCard(forMonth month: Int) -> some View {
-        let rows = DemoYear.receipts[month]
+        let rows = yearModel.receipts[month]
         // Net month total from the rows themselves — the header can never
         // disagree with the column under it.
         let total = rows.reduce(0) { sum, row in
@@ -288,7 +417,7 @@ struct SavingsLedgerView: View {
         }
         return StubCard(theme: theme) {
             if rows.isEmpty {
-                Text("Nothing here yet — \(DemoYear.monthNames[month]) is still ahead.")
+                Text("No tickets in \(DemoYear.monthNames[month]) — nothing torn off.")
                     .font(.system(size: 14))
                     .foregroundStyle(theme.secCap)
                     .padding(.vertical, 12)
@@ -369,7 +498,7 @@ struct SavingsLedgerView: View {
 /// Demo pins at the real coordinates of the demo zones; re-wire to ledger
 /// zone data before release. `tagBelow` hangs the label under its dot so
 /// neighboring tags never overlap at the initial framing.
-private struct SavedPlace: Identifiable {
+struct SavedPlace: Identifiable {
     let id = UUID()
     let title: String
     let sub: String
@@ -378,13 +507,9 @@ private struct SavedPlace: Identifiable {
     let tagBelow: Bool
 }
 
-private struct StreetMapCard: View {
-    let quietCount: Int
-
-    /// One tag color per zone, pulled from the app's own story — brand
-    /// coral, car-fleet green, coin gold — so each pin reads distinct at a
-    /// glance. Dark maroon stays reserved for the fine alone.
-    private let places: [SavedPlace] = [
+/// Presenter Mode's hand-made pins (the AED 6,000 story).
+enum DemoPlaces {
+    static let list: [SavedPlace] = [
         SavedPlace(title: "318C · Karama", sub: "~2,400 · 16 saves",
                    color: Color(hex: 0xD6431A),
                    coordinate: CLLocationCoordinate2D(latitude: 25.2478, longitude: 55.3061),
@@ -402,13 +527,34 @@ private struct StreetMapCard: View {
                    coordinate: CLLocationCoordinate2D(latitude: 25.1124, longitude: 55.1610),
                    tagBelow: true),
     ]
+    static let home = CLLocationCoordinate2D(latitude: 25.0310, longitude: 55.1420)
+}
 
-    private let home = CLLocationCoordinate2D(latitude: 25.0310, longitude: 55.1420)
+struct StreetMapCard: View {
+    let quietCount: Int
+    let places: [SavedPlace]
+    let home: CLLocationCoordinate2D?
+
+    /// Frame every pin (and home) with padding; sane floor for one pin.
+    private var region: MKCoordinateRegion {
+        var coords = places.map(\.coordinate)
+        if let home { coords.append(home) }
+        guard !coords.isEmpty else {
+            return MKCoordinateRegion(
+                center: CLLocationCoordinate2D(latitude: 25.15, longitude: 55.23),
+                span: MKCoordinateSpan(latitudeDelta: 0.34, longitudeDelta: 0.34))
+        }
+        let lats = coords.map(\.latitude), lons = coords.map(\.longitude)
+        let center = CLLocationCoordinate2D(latitude: (lats.min()! + lats.max()!) / 2,
+                                            longitude: (lons.min()! + lons.max()!) / 2)
+        let span = MKCoordinateSpan(
+            latitudeDelta: max(0.08, (lats.max()! - lats.min()!) * 1.9),
+            longitudeDelta: max(0.08, (lons.max()! - lons.min()!) * 1.9))
+        return MKCoordinateRegion(center: center, span: span)
+    }
 
     var body: some View {
-        Map(initialPosition: .region(MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 25.15, longitude: 55.23),
-            span: MKCoordinateSpan(latitudeDelta: 0.34, longitudeDelta: 0.34)))) {
+        Map(initialPosition: .region(region)) {
             ForEach(places) { place in
                 // Anchor at the dot's edge so the dot touches the map point
                 // and the tag floats clear — never over its own text or a
@@ -435,8 +581,22 @@ private struct StreetMapCard: View {
                 }
                 .annotationTitles(.hidden)
             }
-            Annotation("Home", coordinate: home) {
-                Text("HOME · \(quietCount) QUIET")
+            if let home {
+                Annotation("Home", coordinate: home) {
+                    homeChip
+                }
+                .annotationTitles(.hidden)
+            }
+        }
+        .mapStyle(.standard(elevation: .flat, emphasis: .muted,
+                            pointsOfInterest: .excludingAll, showsTraffic: false))
+        .frame(height: 220)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityLabel("Interactive map of where the savings happened, with home marked quiet with \(quietCount) arrivals")
+    }
+
+    private var homeChip: some View {
+        Text("HOME · \(quietCount) QUIET")
                     .font(.system(size: 9, weight: .heavy))
                     .kerning(0.6)
                     .monospacedDigit()
@@ -446,14 +606,6 @@ private struct StreetMapCard: View {
                     .background(Color(hex: 0xF0EBE1).opacity(0.92),
                                 in: RoundedRectangle(cornerRadius: 6))
                     .shadow(color: .black.opacity(0.15), radius: 3, y: 2)
-            }
-            .annotationTitles(.hidden)
-        }
-        .mapStyle(.standard(elevation: .flat, emphasis: .muted,
-                            pointsOfInterest: .excludingAll, showsTraffic: false))
-        .frame(height: 220)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .accessibilityLabel("Interactive map of savings: Karama about 2,400, Al Qouz about 1,800, Al Sufouh about 1,800, the fine at Al Satwa, and home marked quiet with \(quietCount) arrivals")
     }
 
     private func placeDot(_ color: Color) -> some View {

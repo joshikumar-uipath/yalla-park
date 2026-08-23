@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CryptoKit
 
 struct SettingsView: View {
     @AppStorage("plate") private var plate = ""
@@ -16,6 +17,17 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var sessions: [Session]
     @State private var showGuide = false
+
+    // Presenter Mode (hidden): 7 taps on the version row, then the passcode.
+    // Only the presenter's demo needs demo data — everyone else lives on the
+    // real ledger.
+    @AppStorage("presenterMode") private var presenterMode = false
+    @AppStorage("presenterUnlocked") private var presenterUnlocked = false
+    @State private var versionTaps = 0
+    @State private var showPresenterGate = false
+    @State private var presenterPasscode = ""
+    /// SHA-256 of the presenter passcode — the code itself is never in the app.
+    private let presenterHash = "b8bf4d22948b82a2f26cc490e00155406c1a11d93bc10c7edfe6e297298d92a2"
 
     private var isTestBuild: Bool { DemoData.isTestBuild }
 
@@ -124,6 +136,40 @@ struct SettingsView: View {
                     Text("A local record of what the app did — share it with the developer if something misbehaves. Nothing is sent anywhere on its own.")
                 }
 
+                Section {
+                    HStack {
+                        Text("Yalla Park")
+                        Spacer()
+                        Text("0.9.3 (61)")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        versionTaps += 1
+                        if versionTaps >= 7 {
+                            versionTaps = 0
+                            if presenterUnlocked {
+                                presenterUnlocked = false
+                                setPresenterMode(false)
+                            } else {
+                                showPresenterGate = true
+                            }
+                        }
+                    }
+                    if presenterUnlocked {
+                        Toggle("Presenter mode", isOn: Binding(
+                            get: { presenterMode },
+                            set: { setPresenterMode($0) }))
+                    }
+                } header: {
+                    Text("About")
+                } footer: {
+                    if presenterUnlocked {
+                        Text("Presenter mode fills the savings screen with the demo year for live presentations — marked PRESENTER so it can't be mistaken for real numbers. Turning it off wipes the demo data.")
+                    }
+                }
+
                 Section("Automation") {
                     Button {
                         showGuide = true
@@ -190,6 +236,37 @@ struct SettingsView: View {
             .sheet(isPresented: $showGuide) {
                 OnboardingView(startAtShortcut: true) { showGuide = false }
             }
+            .alert("Presenter passcode", isPresented: $showPresenterGate) {
+                SecureField("Passcode", text: $presenterPasscode)
+                Button("Unlock") { unlockPresenter() }
+                Button("Cancel", role: .cancel) { presenterPasscode = "" }
+            } message: {
+                Text("For live demos only.")
+            }
+        }
+    }
+
+    private func unlockPresenter() {
+        let digest = SHA256.hash(data: Data(presenterPasscode.utf8))
+        let hex = digest.map { String(format: "%02x", $0) }.joined()
+        presenterPasscode = ""
+        guard hex == presenterHash else { return }
+        presenterUnlocked = true
+        setPresenterMode(true)
+    }
+
+    /// ON: seed the demo year if the ledger has none. OFF: wipe it clean.
+    private func setPresenterMode(_ on: Bool) {
+        presenterMode = on
+        Diag.log("presenter_mode", ["on": on])
+        if on {
+            let decisive = (try? modelContext.fetchCount(FetchDescriptor<InterventionEvent>(
+                predicate: #Predicate { $0.decisive }))) ?? 0
+            if decisive == 0 { DemoData.seedSixMonths(in: modelContext) }
+        } else {
+            DemoData.clearStats(in: modelContext)
+            NotificationManager.shared.cancelAll()
+            LiveActivityManager.end()
         }
     }
 }
