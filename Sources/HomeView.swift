@@ -678,16 +678,19 @@ struct HomeView: View {
         }
     }
 
-    /// Curated tariff letters ∪ letters from zones the user has paid before.
+    /// Curated tariff suffixes ∪ suffixes from zones the user has paid
+    /// before. One or TWO letters (373CP, Al Barsha) both count.
     private var zoneLetterChips: [String] {
-        var letters = ParkinRules.zoneLetters
+        var suffixes = ParkinRules.zoneLetters
         for zone in recentZones {
             let suffix = String(zone.drop(while: \.isNumber))
-            if suffix.count == 1, suffix.first!.isLetter, !letters.contains(suffix) {
-                letters.append(suffix)
+            if (1...2).contains(suffix.count), suffix.allSatisfy(\.isLetter),
+               !suffixes.contains(suffix) {
+                suffixes.append(suffix)
             }
         }
-        return letters.sorted()
+        // Single letters first (alphabetical), then two-letter bands.
+        return suffixes.sorted { ($0.count, $0) < ($1.count, $1) }
     }
 
     private var payFootnote: String {

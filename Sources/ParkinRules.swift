@@ -47,11 +47,12 @@ enum ParkinRules {
     static let smsCarrierFeeAED = 0.30
     static let extendReply = "Y"
 
-    /// Zone letter chips — tariff-band letters confirmed in the wild:
+    /// Zone suffix chips — tariff bands confirmed in the wild:
     /// A–D street bands, F (Al Sufouh 382F, field 2026-07-22), J (JLT 393J,
-    /// user's own Parkin ticket 2026-08-08), W (lots, 318W/248W). Letters
+    /// user's Parkin ticket 2026-08-08), W (lots, 318W/248W), CP (Al Barsha
+    /// 373CP, sign photo 2026-08-11 — suffixes can be TWO letters). Suffixes
     /// the user has paid before are merged in dynamically by the UI.
-    static let zoneLetters = ["A", "B", "C", "D", "F", "J", "W"]
+    static let zoneLetters = ["A", "B", "C", "D", "F", "J", "W", "CP"]
 
     // Enforcement window (standard + premium street zones)
     static let paidStartHour = 8

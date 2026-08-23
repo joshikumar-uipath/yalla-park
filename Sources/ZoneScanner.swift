@@ -21,7 +21,8 @@ enum ZoneScan {
                 .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
             for token in tokens {
                 let text = String(token)
-                guard text.range(of: #"^\d{3,4}[A-Z]$"#, options: .regularExpression) != nil,
+                // 1-2 letter suffixes: 318C, 248W, and Al Barsha's 373CP (field 2026-08-11).
+                guard text.range(of: #"^\d{3,4}[A-Z]{1,2}$"#, options: .regularExpression) != nil,
                       seen.insert(text).inserted else { continue }
                 out.append(text)
             }
