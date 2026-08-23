@@ -231,6 +231,16 @@ struct HomeView: View {
 
     // MARK: - Map layer
 
+    // Satellite imagery is dark and busy — the translucent pills with dark
+    // text disappear on it (field report). On satellite only, the pills go
+    // solid dark with white text so every readout stays distinct.
+    private var pillBackground: AnyShapeStyle {
+        mapSatellite ? AnyShapeStyle(Color.black.opacity(0.72)) : AnyShapeStyle(.ultraThinMaterial)
+    }
+    private var pillTextPrimary: Color { mapSatellite ? .white : Theme.labelPrimary }
+    private var pillTextSecondary: Color { mapSatellite ? .white.opacity(0.78) : Theme.labelSecondary }
+    private var pillShadow: Color { .black.opacity(mapSatellite ? 0.4 : 0.1) }
+
     private var map: some View {
         Map(position: $camera) {
             if let coordinate = location.coordinate {
@@ -256,17 +266,17 @@ struct HomeView: View {
                         .foregroundStyle(Theme.coral)
                     Text(location.areaName ?? "Locating…")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.labelPrimary)
+                        .foregroundStyle(pillTextPrimary)
                         .lineLimit(1)
                     Text("· just now")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Theme.labelSecondary)
+                        .foregroundStyle(pillTextSecondary)
                         .lineLimit(1)
                 }
                 .padding(.vertical, 9)
                 .padding(.horizontal, 13)
-                .background(.ultraThinMaterial, in: Capsule())
-                .shadow(color: .black.opacity(0.1), radius: 6, y: 2)
+                .background(pillBackground, in: Capsule())
+                .shadow(color: pillShadow, radius: 6, y: 2)
                 Spacer(minLength: 8)
                 savingsPill
             }
@@ -325,13 +335,13 @@ struct HomeView: View {
                 Text("~\(formatAED(avoided))")
                     .font(.system(size: 14, weight: .bold))
                     .monospacedDigit()
-                    .foregroundStyle(Theme.labelPrimary)
+                    .foregroundStyle(pillTextPrimary)
                     .contentTransition(.numericText())
             }
             .padding(.vertical, 9)
             .padding(.horizontal, 12)
-            .background(.ultraThinMaterial, in: Capsule())
-            .shadow(color: .black.opacity(0.1), radius: 6, y: 2)
+            .background(pillBackground, in: Capsule())
+            .shadow(color: pillShadow, radius: 6, y: 2)
             .frame(minHeight: 44) // touch target ≥ 44pt even though the pill is slim
             .contentShape(Rectangle())
         }

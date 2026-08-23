@@ -139,7 +139,7 @@ struct SettingsView: View {
                     HStack {
                         Text("Yalla Park")
                         Spacer()
-                        Text("0.9.4 (62)")
+                        Text("0.9.5 (63)")
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }
