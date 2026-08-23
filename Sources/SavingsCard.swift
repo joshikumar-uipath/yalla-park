@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import Charts
 import MapKit
+import AuthenticationServices
 
 /// The savings surface. Money figures come exclusively from decisive
 /// InterventionEvents (the honest ledger); activity is counted, never priced.
@@ -251,6 +252,10 @@ struct SavingsLedgerView: View {
     /// Presenter Mode (hidden Settings unlock): the hand-made demo year for
     /// live demos. Everyone else — and normal days — sees the REAL ledger.
     @AppStorage("presenterMode") private var presenterMode = false
+    /// Tier gate: the headline ticket is free; the story below (year lot,
+    /// receipts, map, tallies) is the signed-in reward.
+    @AppStorage("appleUserID") private var appleUserID = ""
+    private var fullAccess: Bool { presenterMode || !appleUserID.isEmpty }
 
     @State private var carsParked = false
     /// Entrance animations run exactly once per presentation — onAppear can
@@ -316,6 +321,11 @@ struct SavingsLedgerView: View {
                            displayedAED: displayedAED)
                     .padding(.top, 6)
 
+                if !fullAccess {
+                    signInCard
+                }
+
+                if fullAccess {
                 sectionCap("Your year · tap a month")
                 LotView(theme: theme, bays: yearModel.bays, selected: selectedMonth,
                         parked: carsParked, reduceMotion: reduceMotion) { index in
@@ -348,6 +358,7 @@ struct SavingsLedgerView: View {
                     .foregroundStyle(theme.secCap)
                     .frame(maxWidth: .infinity)
                     .padding(.top, 13)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 28)
@@ -384,6 +395,39 @@ struct SavingsLedgerView: View {
                 displayedAED = totals.avoidedAED
             }
         }
+    }
+
+    /// The signed-out invitation: the total above is free; the story is the
+    /// reward for signing in. No wall — the whole protection app works
+    /// without it.
+    private var signInCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Your year, remembered")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(theme.stubText)
+            Text("Sign in and every month, ticket, and place behind that number stays yours — the full year lot, torn-off receipts, and your savings map.")
+                .font(.system(size: 13.5))
+                .foregroundStyle(Color(hex: 0x7C7160))
+                .fixedSize(horizontal: false, vertical: true)
+            SignInWithAppleButton(.signIn) { request in
+                request.requestedScopes = [.fullName]
+            } onCompletion: { result in
+                if case .success(let auth) = result,
+                   let credential = auth.credential as? ASAuthorizationAppleIDCredential {
+                    Account.completeSignIn(credential: credential)
+                }
+            }
+            .signInWithAppleButtonStyle(.black)
+            .frame(height: 46)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            Text("No account, no server — your identity stays between you and Apple.")
+                .font(.system(size: 11.5))
+                .foregroundStyle(theme.secCap)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(theme.stub, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.top, 20)
     }
 
     /// Matches the app's section labels: 13pt semibold, sentence case.

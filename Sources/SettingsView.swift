@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import CryptoKit
+import AuthenticationServices
 
 struct SettingsView: View {
     @AppStorage("plate") private var plate = ""
@@ -22,6 +23,8 @@ struct SettingsView: View {
     // Only the presenter's demo needs demo data — everyone else lives on the
     // real ledger.
     @AppStorage("presenterMode") private var presenterMode = false
+    @AppStorage("appleUserID") private var appleUserID = ""
+    @AppStorage("appleUserName") private var appleUserName = ""
     @State private var versionTaps = 0
     @State private var showPresenterGate = false
     @State private var presenterPasscode = ""
@@ -44,6 +47,32 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    if appleUserID.isEmpty {
+                        SignInWithAppleButton(.signIn) { request in
+                            request.requestedScopes = [.fullName]
+                        } onCompletion: { result in
+                            if case .success(let auth) = result,
+                               let credential = auth.credential as? ASAuthorizationAppleIDCredential {
+                                Account.completeSignIn(credential: credential)
+                            }
+                        }
+                        .signInWithAppleButtonStyle(.black)
+                        .frame(height: 44)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                    } else {
+                        LabeledContent("Signed in",
+                                       value: appleUserName.isEmpty ? "with Apple" : appleUserName)
+                        Button("Sign out", role: .destructive) { Account.signOut() }
+                    }
+                } header: {
+                    Text("Account")
+                } footer: {
+                    Text(appleUserID.isEmpty
+                         ? "Unlocks your full savings story. No account, no server — your identity stays between you and Apple."
+                         : "Your savings story is unlocked on this device.")
+                }
+
                 Section {
                     Picker("Emirate", selection: $plateEmirate) {
                         ForEach(Emirate.allCases) { emirate in
@@ -139,7 +168,7 @@ struct SettingsView: View {
                     HStack {
                         Text("Yalla Park")
                         Spacer()
-                        Text("0.9.5 (63)")
+                        Text("0.10.0 (64)")
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }

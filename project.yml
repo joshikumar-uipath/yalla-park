@@ -17,8 +17,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.avjoshi.dxbpark
         DEVELOPMENT_TEAM: YJFN5RLHZH
         CODE_SIGN_STYLE: Automatic
-        MARKETING_VERSION: "0.9.5"
-        CURRENT_PROJECT_VERSION: "63"
+        MARKETING_VERSION: "0.10.0"
+        CURRENT_PROJECT_VERSION: "64"
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -31,6 +31,11 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.com.avjoshi.dxbpark
+        com.apple.developer.applesignin:
+          - Default
+        # Portal checkbox finally ticked (capability confirmed via API
+        # 2026-08-23) — Focus-piercing reminders are back on.
+        com.apple.developer.usernotifications.time-sensitive: true
     info:
       path: Sources/Info.plist
       properties:
@@ -57,8 +62,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.avjoshi.dxbpark.widgets
         DEVELOPMENT_TEAM: YJFN5RLHZH
         CODE_SIGN_STYLE: Automatic
-        MARKETING_VERSION: "0.9.5"
-        CURRENT_PROJECT_VERSION: "63"
+        MARKETING_VERSION: "0.10.0"
+        CURRENT_PROJECT_VERSION: "64"
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1"
         SKIP_INSTALL: YES

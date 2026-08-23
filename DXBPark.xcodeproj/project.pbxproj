@@ -25,6 +25,7 @@
 		57E52A9D364D14DD2709C99F /* WidgetSessionStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0476A883698084864D2DD39B /* WidgetSessionStoreTests.swift */; };
 		5C6058CC1E1D03F4BB3F20F9 /* WidgetSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D85D892B9AF0E162FAAB3845 /* WidgetSessionStore.swift */; };
 		5E35725253EC503CA2ABBD4A /* SpotsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FCD76013188A07DBA77091F /* SpotsView.swift */; };
+		6DAC2DEAA60571CADB71A9EF /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43CFA3C4C31FF21838FB07D5 /* Account.swift */; };
 		6F67F70D6A73237B98B7FD78 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 605D2F35E8612E4B2C105D5C /* LiveActivityManager.swift */; };
 		76D745A94DBDC501F006117C /* PassView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F60F86DB9397E82F0848B4A /* PassView.swift */; };
 		77A90DE56F49E5A9F1ACD587 /* YallaParkWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B711B555406FEEA2B191E3E9 /* YallaParkWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -91,6 +92,7 @@
 		3EB94186009CF99B00169782 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		3F372FA460E1F236A01F6C81 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		4069465CC3A51C722D51C52D /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
+		43CFA3C4C31FF21838FB07D5 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
 		58D0FDA123340B78875DB168 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		5BC94D6118A506B4D3ADB05A /* ConfirmPaidSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmPaidSheet.swift; sourceTree = "<group>"; };
 		5C3DC623BBBE35C6AF39CB97 /* OperatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperatorTests.swift; sourceTree = "<group>"; };
@@ -132,6 +134,7 @@
 		1F3FF19F15402B3C6F1084B2 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				43CFA3C4C31FF21838FB07D5 /* Account.swift */,
 				66C78CC69BDCEAF660325E96 /* AppIntentsSupport.swift */,
 				B0EFE03B718B1BA8F1C9E8F1 /* Assets.xcassets */,
 				5BC94D6118A506B4D3ADB05A /* ConfirmPaidSheet.swift */,
@@ -337,6 +340,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6DAC2DEAA60571CADB71A9EF /* Account.swift in Sources */,
 				B1117A40E8ACE1EE302D0631 /* AppIntentsSupport.swift in Sources */,
 				8DBF837B2EEAEC85252130B7 /* ConfirmPaidSheet.swift in Sources */,
 				168E196AA3DBDF64BFE7DA54 /* DXBParkApp.swift in Sources */,
@@ -505,7 +509,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Widgets/YallaParkWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 63;
+				CURRENT_PROJECT_VERSION = 64;
 				DEVELOPMENT_TEAM = YJFN5RLHZH;
 				INFOPLIST_FILE = Widgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -513,7 +517,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.9.5;
+				MARKETING_VERSION = 0.10.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.avjoshi.dxbpark.widgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -590,7 +594,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Widgets/YallaParkWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 63;
+				CURRENT_PROJECT_VERSION = 64;
 				DEVELOPMENT_TEAM = YJFN5RLHZH;
 				INFOPLIST_FILE = Widgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -598,7 +602,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.9.5;
+				MARKETING_VERSION = 0.10.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.avjoshi.dxbpark.widgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -614,7 +618,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sources/DXBPark.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 63;
+				CURRENT_PROJECT_VERSION = 64;
 				DEVELOPMENT_TEAM = YJFN5RLHZH;
 				INFOPLIST_FILE = Sources/Info.plist;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -622,7 +626,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.9.5;
+				MARKETING_VERSION = 0.10.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.avjoshi.dxbpark;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
@@ -637,7 +641,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sources/DXBPark.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 63;
+				CURRENT_PROJECT_VERSION = 64;
 				DEVELOPMENT_TEAM = YJFN5RLHZH;
 				INFOPLIST_FILE = Sources/Info.plist;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -645,7 +649,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.9.5;
+				MARKETING_VERSION = 0.10.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.avjoshi.dxbpark;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
