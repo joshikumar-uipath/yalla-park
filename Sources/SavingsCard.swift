@@ -361,18 +361,6 @@ struct SavingsLedgerView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(theme.pageText)
             }
-            if presenterMode {
-                // Never mistake the demo year for the real one mid-meeting.
-                ToolbarItem(placement: .topBarTrailing) {
-                    Text("PRESENTER")
-                        .font(.system(size: 9, weight: .heavy))
-                        .kerning(1)
-                        .padding(.vertical, 3)
-                        .padding(.horizontal, 7)
-                        .background(theme.warn.opacity(0.25), in: Capsule())
-                        .foregroundStyle(Color(hex: 0x8A6510))
-                }
-            }
         }
         .onAppear {
             guard !entranceRan else { return }

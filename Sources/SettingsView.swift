@@ -22,7 +22,6 @@ struct SettingsView: View {
     // Only the presenter's demo needs demo data — everyone else lives on the
     // real ledger.
     @AppStorage("presenterMode") private var presenterMode = false
-    @AppStorage("presenterUnlocked") private var presenterUnlocked = false
     @State private var versionTaps = 0
     @State private var showPresenterGate = false
     @State private var presenterPasscode = ""
@@ -140,34 +139,27 @@ struct SettingsView: View {
                     HStack {
                         Text("Yalla Park")
                         Spacer()
-                        Text("0.9.3 (61)")
+                        Text("0.9.4 (62)")
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }
                     .contentShape(Rectangle())
+                    // Invisible owner's switch: 7 taps. Demo profile OFF →
+                    // passcode, then the testing data is simply there. ON →
+                    // silently back to real. Nothing on screen ever says so.
                     .onTapGesture {
                         versionTaps += 1
                         if versionTaps >= 7 {
                             versionTaps = 0
-                            if presenterUnlocked {
-                                presenterUnlocked = false
+                            if presenterMode {
                                 setPresenterMode(false)
                             } else {
                                 showPresenterGate = true
                             }
                         }
                     }
-                    if presenterUnlocked {
-                        Toggle("Presenter mode", isOn: Binding(
-                            get: { presenterMode },
-                            set: { setPresenterMode($0) }))
-                    }
                 } header: {
                     Text("About")
-                } footer: {
-                    if presenterUnlocked {
-                        Text("Presenter mode fills the savings screen with the demo year for live presentations — marked PRESENTER so it can't be mistaken for real numbers. Turning it off wipes the demo data.")
-                    }
                 }
 
                 Section("Automation") {
@@ -236,12 +228,10 @@ struct SettingsView: View {
             .sheet(isPresented: $showGuide) {
                 OnboardingView(startAtShortcut: true) { showGuide = false }
             }
-            .alert("Presenter passcode", isPresented: $showPresenterGate) {
+            .alert("Passcode", isPresented: $showPresenterGate) {
                 SecureField("Passcode", text: $presenterPasscode)
                 Button("Unlock") { unlockPresenter() }
                 Button("Cancel", role: .cancel) { presenterPasscode = "" }
-            } message: {
-                Text("For live demos only.")
             }
         }
     }
@@ -251,14 +241,14 @@ struct SettingsView: View {
         let hex = digest.map { String(format: "%02x", $0) }.joined()
         presenterPasscode = ""
         guard hex == presenterHash else { return }
-        presenterUnlocked = true
         setPresenterMode(true)
     }
 
     /// ON: seed the demo year if the ledger has none. OFF: wipe it clean.
     private func setPresenterMode(_ on: Bool) {
         presenterMode = on
-        Diag.log("presenter_mode", ["on": on])
+        UINotificationFeedbackGenerator().notificationOccurred(on ? .success : .warning)
+        Diag.log("demo_profile", ["on": on])
         if on {
             let decisive = (try? modelContext.fetchCount(FetchDescriptor<InterventionEvent>(
                 predicate: #Predicate { $0.decisive }))) ?? 0
