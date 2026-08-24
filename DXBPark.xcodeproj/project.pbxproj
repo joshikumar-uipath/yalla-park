@@ -29,12 +29,14 @@
 		6F67F70D6A73237B98B7FD78 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 605D2F35E8612E4B2C105D5C /* LiveActivityManager.swift */; };
 		76D745A94DBDC501F006117C /* PassView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F60F86DB9397E82F0848B4A /* PassView.swift */; };
 		77A90DE56F49E5A9F1ACD587 /* YallaParkWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B711B555406FEEA2B191E3E9 /* YallaParkWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7D70DC55652F0132A381B8AF /* TierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F26C5A0DB7702C1105976F1 /* TierTests.swift */; };
 		86387C5E7195B84FB7D8CD1B /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1EB1DD7EDA76FBEA7B6E466 /* OnboardingView.swift */; };
 		8A1AA41C88D6153E540A9CBF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B0EFE03B718B1BA8F1C9E8F1 /* Assets.xcassets */; };
 		8DBF837B2EEAEC85252130B7 /* ConfirmPaidSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BC94D6118A506B4D3ADB05A /* ConfirmPaidSheet.swift */; };
 		986548DF048A4091486F3A37 /* Operators.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4C89FCFC75DDCB29F30ED16 /* Operators.swift */; };
 		9B8B05E4A43A3A6647137696 /* DemoData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EDFB23F3A6D7E2956407CAB /* DemoData.swift */; };
 		9CBE94B426A040CB36B15FE4 /* ParkingActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CFDC07F993FDF17DF849A3D /* ParkingActivity.swift */; };
+		A1D5F2408B4FDDC22ECE4F3F /* Tier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9BEB46B4D361B2341320211 /* Tier.swift */; };
 		A7E1853E6C3F180D7DADC941 /* ParkingActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CFDC07F993FDF17DF849A3D /* ParkingActivity.swift */; };
 		B1117A40E8ACE1EE302D0631 /* AppIntentsSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66C78CC69BDCEAF660325E96 /* AppIntentsSupport.swift */; };
 		B82B331830BBC3561302F1D6 /* InterventionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 205E2AD08AF644BFB045892A /* InterventionTests.swift */; };
@@ -109,8 +111,10 @@
 		898777D70C0010C1F557DC14 /* DXBPark.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DXBPark.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8FCD76013188A07DBA77091F /* SpotsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotsView.swift; sourceTree = "<group>"; };
 		94896178C92669C9D17DEC63 /* MessageComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageComposer.swift; sourceTree = "<group>"; };
+		9F26C5A0DB7702C1105976F1 /* TierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TierTests.swift; sourceTree = "<group>"; };
 		9F60F86DB9397E82F0848B4A /* PassView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassView.swift; sourceTree = "<group>"; };
 		A83EEBECE526FD2784CBD928 /* YallaParkWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = YallaParkWidgets.entitlements; sourceTree = "<group>"; };
+		A9BEB46B4D361B2341320211 /* Tier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tier.swift; sourceTree = "<group>"; };
 		B0EFE03B718B1BA8F1C9E8F1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B4C89FCFC75DDCB29F30ED16 /* Operators.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Operators.swift; sourceTree = "<group>"; };
 		B711B555406FEEA2B191E3E9 /* YallaParkWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = YallaParkWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -161,6 +165,7 @@
 				3EB94186009CF99B00169782 /* SettingsView.swift */,
 				8FCD76013188A07DBA77091F /* SpotsView.swift */,
 				6D8C53CC5574D36358A3ECA8 /* Theme.swift */,
+				A9BEB46B4D361B2341320211 /* Tier.swift */,
 				D85D892B9AF0E162FAAB3845 /* WidgetSessionStore.swift */,
 				E19322994CB73E3C0C1E8080 /* ZoneLocator.swift */,
 				E5D1B231B1E410A51CBB9F46 /* ZoneScanner.swift */,
@@ -188,6 +193,7 @@
 				86E46BF329AE266E6DFBCD16 /* RealYearTests.swift */,
 				DF479F60F714630CFEE287E6 /* RecapAndScanTests.swift */,
 				F4C5005DC600E3372C987DB0 /* RegionTests.swift */,
+				9F26C5A0DB7702C1105976F1 /* TierTests.swift */,
 				0476A883698084864D2DD39B /* WidgetSessionStoreTests.swift */,
 				F2C45D12E12957CEBDC51FA0 /* ZoneLocatorTests.swift */,
 			);
@@ -364,6 +370,7 @@
 				418B942645445A49336A308B /* SettingsView.swift in Sources */,
 				5E35725253EC503CA2ABBD4A /* SpotsView.swift in Sources */,
 				124DA99460C3FEC7249D0F5A /* Theme.swift in Sources */,
+				A1D5F2408B4FDDC22ECE4F3F /* Tier.swift in Sources */,
 				5C6058CC1E1D03F4BB3F20F9 /* WidgetSessionStore.swift in Sources */,
 				E5C5AF8515ECE841A47A120C /* ZoneLocator.swift in Sources */,
 				FDF5DA59C430E0464A777521 /* ZoneScanner.swift in Sources */,
@@ -391,6 +398,7 @@
 				21F42E5531314EC5F0FC83B8 /* RealYearTests.swift in Sources */,
 				555B3DE5CBC1FCB8935CE2AF /* RecapAndScanTests.swift in Sources */,
 				C81C0F966C575B1CF1C6C6F6 /* RegionTests.swift in Sources */,
+				7D70DC55652F0132A381B8AF /* TierTests.swift in Sources */,
 				57E52A9D364D14DD2709C99F /* WidgetSessionStoreTests.swift in Sources */,
 				D3A665C0F3EA417F1484C736 /* ZoneLocatorTests.swift in Sources */,
 			);
@@ -509,7 +517,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Widgets/YallaParkWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 65;
+				CURRENT_PROJECT_VERSION = 66;
 				DEVELOPMENT_TEAM = YJFN5RLHZH;
 				INFOPLIST_FILE = Widgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -517,7 +525,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.10.1;
+				MARKETING_VERSION = 0.11.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.avjoshi.dxbpark.widgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -594,7 +602,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Widgets/YallaParkWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 65;
+				CURRENT_PROJECT_VERSION = 66;
 				DEVELOPMENT_TEAM = YJFN5RLHZH;
 				INFOPLIST_FILE = Widgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -602,7 +610,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.10.1;
+				MARKETING_VERSION = 0.11.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.avjoshi.dxbpark.widgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -618,7 +626,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sources/DXBPark.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 65;
+				CURRENT_PROJECT_VERSION = 66;
 				DEVELOPMENT_TEAM = YJFN5RLHZH;
 				INFOPLIST_FILE = Sources/Info.plist;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -626,7 +634,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.10.1;
+				MARKETING_VERSION = 0.11.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.avjoshi.dxbpark;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
@@ -641,7 +649,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sources/DXBPark.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 65;
+				CURRENT_PROJECT_VERSION = 66;
 				DEVELOPMENT_TEAM = YJFN5RLHZH;
 				INFOPLIST_FILE = Sources/Info.plist;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -649,7 +657,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.10.1;
+				MARKETING_VERSION = 0.11.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.avjoshi.dxbpark;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;

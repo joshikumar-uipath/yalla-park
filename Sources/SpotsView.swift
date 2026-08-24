@@ -45,10 +45,20 @@ struct SpotsView: View {
         }
     }
 
+    /// Tickets older than the tier's window stay stored but leave the feed.
+    private var visiblePast: [Session] {
+        let cutoff = Tier.historyCutoff()
+        return sessions.filter { !$0.isActive && $0.startedAt >= cutoff }
+    }
+    private var hiddenTicketCount: Int {
+        let cutoff = Tier.historyCutoff()
+        return sessions.filter { !$0.isActive && $0.startedAt < cutoff }.count
+    }
+
     /// Expired tickets claimed by spots (zone match, first spot wins); the
     /// rest group by zone into their own cards.
     private var feed: [FeedEntry] {
-        let past = sessions.filter { !$0.isActive }
+        let past = visiblePast
         var claimed = Set<UUID>()
         var entries: [FeedEntry] = spots.map { spot in
             guard !spot.zoneCode.isEmpty else { return .spotBlock(spot, []) }
@@ -141,7 +151,14 @@ struct SpotsView: View {
                         }
                         Section {
                         } footer: {
-                            Text("Got a fine anyway? Swipe a ticket and tell us — it keeps the savings numbers honest.")
+                            VStack(alignment: .leading, spacing: 6) {
+                                if hiddenTicketCount > 0 {
+                                    Text(Tier.isEntitled
+                                         ? "\(hiddenTicketCount) older ticket\(hiddenTicketCount == 1 ? "" : "s") beyond your 90 days."
+                                         : "\(hiddenTicketCount) older ticket\(hiddenTicketCount == 1 ? "" : "s") tucked away — sign in (Settings) to keep 90 days of history.")
+                                }
+                                Text("Got a fine anyway? Swipe a ticket and tell us — it keeps the savings numbers honest.")
+                            }
                         }
                     }
                 }

@@ -44,9 +44,16 @@ struct CarParkedIntent: AppIntent {
     func perform() async throws -> some IntentResult {
         // The automation fired — layer 1 is verified working. Locked state
         // is the exact evidence the Fathima incident lacked.
-        Diag.log("intent_fired", ["locked": !UIApplication.shared.isProtectedDataAvailable])
+        Diag.log("intent_fired", ["locked": !UIApplication.shared.isProtectedDataAvailable,
+                                  "entitled": Tier.autoNudgeEnabled])
         UserDefaults.standard.set(true, forKey: "automationVerified")
-        NotificationManager.shared.fireParkedNudge()
+        if Tier.autoNudgeEnabled {
+            NotificationManager.shared.fireParkedNudge()
+        } else {
+            // Automation is the signed-in perk — the free nudge invites the
+            // sign-in instead of doing the work.
+            NotificationManager.shared.fireSignInNudge()
+        }
         return .result()
     }
 }

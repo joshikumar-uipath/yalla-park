@@ -102,6 +102,15 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                  at: .now.addingTimeInterval(1.5))
     }
 
+    /// The free-tier variant: same trigger, but the automation's work is a
+    /// signed-in perk — this one invites the sign-in.
+    func fireSignInNudge() {
+        schedule(id: "layer1-signin-nudge",
+                 title: "Just parked?",
+                 body: "Sign in with Apple in Yalla Park to get automatic pay reminders when you leave the car.",
+                 at: .now.addingTimeInterval(1.5))
+    }
+
     // MARK: - Layer 4b: expiry reminders (with lock-screen +1 hr action)
 
     /// `zoneText` is the READY display label ("Zone 318C", "Sharjah Parking")

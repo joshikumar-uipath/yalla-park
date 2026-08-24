@@ -1569,9 +1569,13 @@ struct HomeView: View {
             matched.lastParkedAt = .now
             // The place remembers who runs it — a Parkonic payment here means
             // next arrival goes straight to the P-zone flow.
-            matched.parkingOperator = parkingOperator
-            matched.zoneCode = zoneCode.uppercased()
-        } else {
+            if Tier.remembersZoneSpots {
+                matched.parkingOperator = parkingOperator
+                matched.zoneCode = zoneCode.uppercased()
+            }
+        } else if Tier.remembersZoneSpots {
+            // Zone-memory spots are the signed-in everyday magic; free keeps
+            // Home/Office designations and free-spot corrections only.
             let name = location.areaName ?? "Spot \(spots.count + 1)"
             let spot = Spot(name: name, coordinate: coordinate,
                             zoneCode: zoneCode.uppercased(), kind: zoneKind)
