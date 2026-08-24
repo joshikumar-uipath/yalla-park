@@ -1043,7 +1043,7 @@ private struct BayCell: View {
 }
 
 /// Top-down car: body, windshield, roof gloss, rear glass, mirrors, headlights.
-private struct CarView: View {
+struct CarView: View {
     let theme: SavingsTheme
     let tone: Int
 
