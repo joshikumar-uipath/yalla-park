@@ -27,6 +27,7 @@ struct SettingsView: View {
     @AppStorage("appleUserName") private var appleUserName = ""
     @State private var versionTaps = 0
     @State private var showPresenterGate = false
+    @State private var signInError: String?
     @State private var presenterPasscode = ""
     /// SHA-256 of the presenter passcode — the code itself is never in the app.
     private let presenterHash = "b8bf4d22948b82a2f26cc490e00155406c1a11d93bc10c7edfe6e297298d92a2"
@@ -52,10 +53,7 @@ struct SettingsView: View {
                         SignInWithAppleButton(.signIn) { request in
                             request.requestedScopes = [.fullName]
                         } onCompletion: { result in
-                            if case .success(let auth) = result,
-                               let credential = auth.credential as? ASAuthorizationAppleIDCredential {
-                                Account.completeSignIn(credential: credential)
-                            }
+                            signInError = Account.handle(result)
                         }
                         .signInWithAppleButtonStyle(.black)
                         .frame(height: 48)
@@ -170,7 +168,7 @@ struct SettingsView: View {
                     HStack {
                         Text("Yalla Park")
                         Spacer()
-                        Text("0.11.0 (66)")
+                        Text("0.11.1 (67)")
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }
@@ -258,6 +256,13 @@ struct SettingsView: View {
             .tint(Theme.coral)
             .sheet(isPresented: $showGuide) {
                 OnboardingView(startAtShortcut: true) { showGuide = false }
+            }
+            .alert("Couldn't sign in", isPresented: Binding(
+                get: { signInError != nil },
+                set: { if !$0 { signInError = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(signInError ?? "")
             }
             .alert("Passcode", isPresented: $showPresenterGate) {
                 SecureField("Passcode", text: $presenterPasscode)

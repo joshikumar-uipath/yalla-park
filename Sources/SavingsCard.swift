@@ -256,6 +256,7 @@ struct SavingsLedgerView: View {
     /// receipts, map, tallies) is the signed-in reward.
     @AppStorage("appleUserID") private var appleUserID = ""
     private var fullAccess: Bool { presenterMode || !appleUserID.isEmpty }
+    @State private var signInError: String?
 
     @State private var carsParked = false
     /// Entrance animations run exactly once per presentation — onAppear can
@@ -435,14 +436,18 @@ struct SavingsLedgerView: View {
             SignInWithAppleButton(.signIn) { request in
                 request.requestedScopes = [.fullName]
             } onCompletion: { result in
-                if case .success(let auth) = result,
-                   let credential = auth.credential as? ASAuthorizationAppleIDCredential {
-                    Account.completeSignIn(credential: credential)
-                }
+                signInError = Account.handle(result)
             }
             .signInWithAppleButtonStyle(.black)
             .frame(height: 50)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .alert("Couldn't sign in", isPresented: Binding(
+                get: { signInError != nil },
+                set: { if !$0 { signInError = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(signInError ?? "")
+            }
 
             Text("No account, no server — your identity stays between you and Apple.")
                 .font(.system(size: 11.5))

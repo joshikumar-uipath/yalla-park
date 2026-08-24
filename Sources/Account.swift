@@ -20,6 +20,27 @@ enum Account {
     /// owner's first sign-in, captured via Diagnostics.
     static let demoAllowlist: Set<String> = []
 
+    /// Shared completion for both sign-in buttons: success stores the
+    /// credential; failure LOGS the real reason (siwa_failed in Diagnostics)
+    /// and returns a message to show — silent failures made "it's not
+    /// logging in" undiagnosable (field report 2026-08-24).
+    static func handle(_ result: Result<ASAuthorization, Error>) -> String? {
+        switch result {
+        case .success(let auth):
+            guard let credential = auth.credential as? ASAuthorizationAppleIDCredential else {
+                Diag.log("siwa_failed", ["err": "unexpected credential type"])
+                return "Sign-in returned an unexpected response. Please try again."
+            }
+            completeSignIn(credential: credential)
+            return nil
+        case .failure(let error):
+            let nsError = error as NSError
+            Diag.log("siwa_failed", ["code": nsError.code, "err": nsError.localizedDescription])
+            if nsError.code == ASAuthorizationError.canceled.rawValue { return nil }
+            return "\(nsError.localizedDescription) (code \(nsError.code)). Check that this iPhone is signed into iCloud in Settings, then try again."
+        }
+    }
+
     static func completeSignIn(credential: ASAuthorizationAppleIDCredential) {
         let defaults = UserDefaults.standard
         defaults.set(credential.user, forKey: "appleUserID")
