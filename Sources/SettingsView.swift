@@ -64,13 +64,14 @@ struct SettingsView: View {
                         LabeledContent("Signed in",
                                        value: appleUserName.isEmpty ? "with Apple" : appleUserName)
                         Button("Sign out", role: .destructive) { Account.signOut() }
+                        Button("Erase all my data", role: .destructive) { eraseEverything() }
                     }
                 } header: {
                     Text("Account")
                 } footer: {
                     Text(appleUserID.isEmpty
-                         ? "Unlocks your full savings story. No account, no server — your identity stays between you and Apple."
-                         : "Your savings story is unlocked on this device.")
+                         ? "Yalla Park uses Sign in with Apple — no account of ours, no server; your identity stays between you and Apple."
+                         : "Erase removes every ticket, spot, and setting from this phone and signs you out.")
                 }
 
                 Section {
@@ -168,7 +169,7 @@ struct SettingsView: View {
                     HStack {
                         Text("Yalla Park")
                         Spacer()
-                        Text("0.11.1 (67)")
+                        Text("0.12.0 (68)")
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }
@@ -278,6 +279,21 @@ struct SettingsView: View {
         presenterPasscode = ""
         guard hex == presenterHash else { return }
         setPresenterMode(true)
+    }
+
+    /// Mandatory-sign-in apps must offer data deletion (App Review 5.1.1):
+    /// wipe every record and preference, then sign out — factory fresh.
+    private func eraseEverything() {
+        DemoData.clearStats(in: modelContext)
+        try? modelContext.delete(model: Spot.self)
+        NotificationManager.shared.cancelAll()
+        LiveActivityManager.end()
+        WidgetSessionStore.clear()
+        Diag.clear()
+        if let bundleID = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: bundleID)
+        }
+        Account.signOut()
     }
 
     /// ON: seed the demo year if the ledger has none. OFF: wipe it clean.

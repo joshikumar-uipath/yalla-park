@@ -39,6 +39,7 @@
 		A1D5F2408B4FDDC22ECE4F3F /* Tier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9BEB46B4D361B2341320211 /* Tier.swift */; };
 		A7E1853E6C3F180D7DADC941 /* ParkingActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CFDC07F993FDF17DF849A3D /* ParkingActivity.swift */; };
 		B1117A40E8ACE1EE302D0631 /* AppIntentsSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66C78CC69BDCEAF660325E96 /* AppIntentsSupport.swift */; };
+		B5FEAE05F10A4DC2299BEDCC /* SignInGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 023BA97E0259EF6A58947190 /* SignInGate.swift */; };
 		B82B331830BBC3561302F1D6 /* InterventionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 205E2AD08AF644BFB045892A /* InterventionTests.swift */; };
 		C089C49B8CAD15B442FC0705 /* YallaParkWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64F7A94B9B0B3F28051F4343 /* YallaParkWidgets.swift */; };
 		C81C0F966C575B1CF1C6C6F6 /* RegionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4C5005DC600E3372C987DB0 /* RegionTests.swift */; };
@@ -85,6 +86,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		023BA97E0259EF6A58947190 /* SignInGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInGate.swift; sourceTree = "<group>"; };
 		0476A883698084864D2DD39B /* WidgetSessionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSessionStoreTests.swift; sourceTree = "<group>"; };
 		0F52A1B2D5416A306CC55D19 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		205E2AD08AF644BFB045892A /* InterventionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterventionTests.swift; sourceTree = "<group>"; };
@@ -163,6 +165,7 @@
 				F607044A4521867D5D97AAC9 /* Savings.swift */,
 				C97C7E13CDC77F7396123EE9 /* SavingsCard.swift */,
 				3EB94186009CF99B00169782 /* SettingsView.swift */,
+				023BA97E0259EF6A58947190 /* SignInGate.swift */,
 				8FCD76013188A07DBA77091F /* SpotsView.swift */,
 				6D8C53CC5574D36358A3ECA8 /* Theme.swift */,
 				A9BEB46B4D361B2341320211 /* Tier.swift */,
@@ -368,6 +371,7 @@
 				DD6E0B0E7DD4D336F3146312 /* Savings.swift in Sources */,
 				08F7B43F6AD81217EB6F58A5 /* SavingsCard.swift in Sources */,
 				418B942645445A49336A308B /* SettingsView.swift in Sources */,
+				B5FEAE05F10A4DC2299BEDCC /* SignInGate.swift in Sources */,
 				5E35725253EC503CA2ABBD4A /* SpotsView.swift in Sources */,
 				124DA99460C3FEC7249D0F5A /* Theme.swift in Sources */,
 				A1D5F2408B4FDDC22ECE4F3F /* Tier.swift in Sources */,
@@ -517,7 +521,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Widgets/YallaParkWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 67;
+				CURRENT_PROJECT_VERSION = 68;
 				DEVELOPMENT_TEAM = YJFN5RLHZH;
 				INFOPLIST_FILE = Widgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -525,7 +529,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.11.1;
+				MARKETING_VERSION = 0.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.avjoshi.dxbpark.widgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -602,7 +606,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Widgets/YallaParkWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 67;
+				CURRENT_PROJECT_VERSION = 68;
 				DEVELOPMENT_TEAM = YJFN5RLHZH;
 				INFOPLIST_FILE = Widgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -610,7 +614,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.11.1;
+				MARKETING_VERSION = 0.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.avjoshi.dxbpark.widgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -626,7 +630,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sources/DXBPark.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 67;
+				CURRENT_PROJECT_VERSION = 68;
 				DEVELOPMENT_TEAM = YJFN5RLHZH;
 				INFOPLIST_FILE = Sources/Info.plist;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -634,7 +638,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.11.1;
+				MARKETING_VERSION = 0.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.avjoshi.dxbpark;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
@@ -649,7 +653,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sources/DXBPark.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 67;
+				CURRENT_PROJECT_VERSION = 68;
 				DEVELOPMENT_TEAM = YJFN5RLHZH;
 				INFOPLIST_FILE = Sources/Info.plist;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -657,7 +661,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.11.1;
+				MARKETING_VERSION = 0.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.avjoshi.dxbpark;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;

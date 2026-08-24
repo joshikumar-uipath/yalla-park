@@ -40,6 +40,7 @@ struct DXBParkApp: App {
     @State private var router = AppRouter()
     @AppStorage("hasOnboarded") private var hasOnboarded = false
     @AppStorage("automationVerified") private var automationVerified = false
+    @AppStorage("appleUserID") private var appleUserID = ""
 
     /// Built by hand so a store that fails to open recovers instead of
     /// fatalError-ing at launch (`.modelContainer(for:)` crashes on failure —
@@ -81,6 +82,16 @@ struct DXBParkApp: App {
                     set: { if !$0 { hasOnboarded = true } }
                 )) {
                     OnboardingView { hasOnboarded = true }
+                }
+                // Two-tier model: signed is the entry point. The gate sits
+                // after onboarding and can't be swiped away — it dismisses
+                // itself the moment sign-in lands (appleUserID set).
+                .fullScreenCover(isPresented: Binding(
+                    get: { hasOnboarded && appleUserID.isEmpty },
+                    set: { _ in }
+                )) {
+                    SignInGateView()
+                        .interactiveDismissDisabled()
                 }
                 .task {
                     let settings = await UNUserNotificationCenter.current().notificationSettings()
