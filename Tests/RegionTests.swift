@@ -127,6 +127,10 @@ final class RegionTests: XCTestCase {
         XCTAssertEqual(operatorAt(25.412, 55.435), .ajman, "Ajman Corniche")
         XCTAssertEqual(operatorAt(25.13, 56.34), .fujairah, "Fujairah city")
         XCTAssertEqual(operatorAt(25.34, 56.35), .sharjah, "Khor Fakkan is Sharjah's")
+        XCTAssertNotNil(EmirateLocator.note(at: CLLocationCoordinate2D(latitude: 25.34, longitude: 56.35)),
+                        "exclaves explain themselves")
+        XCTAssertNil(EmirateLocator.note(at: CLLocationCoordinate2D(latitude: 25.325, longitude: 55.385)),
+                     "Sharjah city needs no explanation")
         XCTAssertEqual(operatorAt(25.02, 56.35), .sharjah, "Kalba is Sharjah's")
         XCTAssertNil(operatorAt(25.2048, 55.2708), "Downtown Dubai — community polygons handle Dubai")
         XCTAssertNil(operatorAt(24.9, 55.0), "Open desert")

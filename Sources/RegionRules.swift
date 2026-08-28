@@ -170,6 +170,10 @@ enum EmirateLocator {
     private struct Box {
         let minLat, maxLat, minLon, maxLon: Double
         let parkingOperator: ParkingOperator
+        /// Shown on the pay sheet when the answer surprises people (the
+        /// Sharjah exclaves on the east coast read as Fujairah on the ground —
+        /// field report 2026-08-28, Khor Fakkan corniche).
+        var note: String? = nil
     }
 
     private static let boxes: [Box] = [
@@ -178,8 +182,10 @@ enum EmirateLocator {
         // Sharjah city.
         Box(minLat: 25.26, maxLat: 25.375, minLon: 55.35, maxLon: 55.65, parkingOperator: .sharjah),
         // Sharjah east-coast exclaves — Khor Fakkan, then Kalba.
-        Box(minLat: 25.30, maxLat: 25.40, minLon: 56.28, maxLon: 56.40, parkingOperator: .sharjah),
-        Box(minLat: 24.96, maxLat: 25.10, minLon: 56.30, maxLon: 56.40, parkingOperator: .sharjah),
+        Box(minLat: 25.30, maxLat: 25.40, minLon: 56.28, maxLon: 56.40, parkingOperator: .sharjah,
+            note: "Khor Fakkan is Sharjah territory (an exclave inside Fujairah) — Sharjah's 5566 covers it, not Fujairah's 3009."),
+        Box(minLat: 24.96, maxLat: 25.10, minLon: 56.30, maxLon: 56.40, parkingOperator: .sharjah,
+            note: "Kalba is Sharjah territory (an exclave inside Fujairah) — Sharjah's 5566 covers it, not Fujairah's 3009."),
         // Fujairah city strip.
         Box(minLat: 25.05, maxLat: 25.30, minLon: 56.25, maxLon: 56.42, parkingOperator: .fujairah),
         // Abu Dhabi city + suburbs.
@@ -188,11 +194,20 @@ enum EmirateLocator {
         Box(minLat: 24.05, maxLat: 24.35, minLon: 55.55, maxLon: 55.90, parkingOperator: .mawaqif),
     ]
 
-    /// The non-Dubai operator at this coordinate, or nil (Dubai or unknown).
-    static func parkingOperator(at coordinate: CLLocationCoordinate2D) -> ParkingOperator? {
+    private static func box(at coordinate: CLLocationCoordinate2D) -> Box? {
         boxes.first {
             coordinate.latitude >= $0.minLat && coordinate.latitude <= $0.maxLat
                 && coordinate.longitude >= $0.minLon && coordinate.longitude <= $0.maxLon
-        }?.parkingOperator
+        }
+    }
+
+    /// The non-Dubai operator at this coordinate, or nil (Dubai or unknown).
+    static func parkingOperator(at coordinate: CLLocationCoordinate2D) -> ParkingOperator? {
+        box(at: coordinate)?.parkingOperator
+    }
+
+    /// Why the answer might surprise the driver, when it would.
+    static func note(at coordinate: CLLocationCoordinate2D) -> String? {
+        box(at: coordinate)?.note
     }
 }

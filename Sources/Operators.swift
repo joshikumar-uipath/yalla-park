@@ -196,8 +196,8 @@ enum ParkingOperator: String, Codable, CaseIterable {
             let tier = zone.uppercased() == "P" ? "P" : "S"
             return "\(plate.parkonicPlate) \(tier) \(hours)"
         case .sharjah:
-            // "DXB 60925 2" — no letters, no zones (user-supplied format;
-            // verify with one real payment before relying on it).
+            // "DXB 41190 3" — no letters, no zones. FIELD-VERIFIED 2026-08-28
+            // at Khor Fakkan: 5566 confirmed ticket 250763373, AED 8.38, 3 h.
             return "\(plate.sharjahPlate) \(hours)"
         case .ajman, .fujairah:
             // "DXB BB 60925 1" — fully spaced.

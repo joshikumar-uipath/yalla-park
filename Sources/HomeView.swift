@@ -30,6 +30,8 @@ struct HomeView: View {
     @State private var parkingOperator: ParkingOperator = .parkin
     /// User flipped the operator by hand — location fixes stop second-guessing.
     @State private var operatorOverridden = false
+    /// Geofence explanation for surprising answers (Sharjah exclaves).
+    @State private var regionNote: String?
     @State private var matchedSpot: Spot?
     /// GPS-derived district → zone number suggestion (ZoneLocator).
     @State private var suggestedCommunity: Community?
@@ -838,6 +840,22 @@ struct HomeView: View {
     /// Sharjah / Ajman / Fujairah: one SMS covers the whole emirate.
     private var zonelessEntry: some View {
         VStack(alignment: .leading, spacing: 8) {
+            if let regionNote, !operatorOverridden {
+                // The exclave explanation — the detection is right, it just
+                // contradicts the map in people's heads.
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "info.circle.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.coral)
+                    Text(regionNote)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Theme.labelSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(11)
+                .background(.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
+            }
             Text("\(parkingOperator.regionLabel) has no zone codes — one SMS covers the emirate.")
                 .font(.system(size: 13))
                 .foregroundStyle(Theme.labelTertiary)
@@ -1384,6 +1402,7 @@ struct HomeView: View {
                     ? .parkonic : .parkin
             } else if let regional = EmirateLocator.parkingOperator(at: coordinate) {
                 parkingOperator = regional
+                regionNote = EmirateLocator.note(at: coordinate)
                 // Mawaqif's "zone" is the kerb tier — default Standard.
                 if parkingOperator.zoneStyle == .tier, zoneCode.isEmpty { zoneCode = "S" }
                 if parkingOperator.zoneStyle == ZoneStyle.none { zoneCode = "" }
