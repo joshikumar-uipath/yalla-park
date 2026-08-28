@@ -8,6 +8,9 @@ struct ConfirmPaidSheet: View {
     var parkingOperator: ParkingOperator = .parkin
     let onConfirm: () -> Void
     let onNotYet: () -> Void
+    /// The reply said no charge applies right now (Parkonic: "Invalid
+    /// Amount - Zero/Negative" — field-seen at P112, Friday afternoon).
+    var onFreeNow: (() -> Void)? = nil
 
     private var operatorName: String { parkingOperator.label }
 
@@ -35,7 +38,9 @@ struct ConfirmPaidSheet: View {
 
             Text(viaParkinApp
                  ? "If Parkin shows your session active, you're covered — confirm and the countdown and expiry reminders run here too."
-                 : "Watch for the reply from \(parkingOperator.smsNumber) — it lists a ticket and expiry. If it says the zone is invalid, fix it and resend. We only mark it paid when you say \(operatorName) confirmed.")
+                 : (parkingOperator == .parkonic
+                    ? "Watch for the reply from 6670 — a ticket number and expiry means you're paid. \"Invalid Amount - Zero/Negative\" means this zone isn't charging right now: nothing to pay."
+                    : "Watch for the reply from \(parkingOperator.smsNumber) — it lists a ticket and expiry. If it says the zone is invalid, fix it and resend. We only mark it paid when you say \(operatorName) confirmed."))
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.labelSecondary)
                 .lineSpacing(3)
@@ -51,6 +56,17 @@ struct ConfirmPaidSheet: View {
             }
             .padding(.top, 18)
 
+            if let onFreeNow, !viaParkinApp {
+                Button(action: onFreeNow) {
+                    Text("Reply said it's free right now")
+                        .font(.system(size: 15, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
+                        .foregroundStyle(Theme.success)
+                }
+                .padding(.top, 2)
+            }
+
             Button(action: onNotYet) {
                 Text("No reply yet / it failed")
                     .font(.system(size: 15, weight: .semibold))
@@ -58,11 +74,11 @@ struct ConfirmPaidSheet: View {
                     .padding(.vertical, 13)
                     .foregroundStyle(Theme.labelSecondary)
             }
-            .padding(.top, 4)
+            .padding(.top, 2)
         }
         .padding(.horizontal, 22)
         .padding(.top, 24)
-        .presentationDetents([.height(350)])
+        .presentationDetents([.height(onFreeNow != nil && !viaParkinApp ? 410 : 350)])
         .presentationCornerRadius(Theme.sheetRadius)
         .presentationDragIndicator(.visible)
     }

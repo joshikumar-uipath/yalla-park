@@ -218,7 +218,8 @@ struct HomeView: View {
                     ? (extendTarget?.parkingOperator ?? parkingOperator)
                     : parkingOperator,
                 onConfirm: confirmPaid,
-                onNotYet: { showConfirm = false; paidViaParkin = false }
+                onNotYet: { showConfirm = false; paidViaParkin = false },
+                onFreeNow: { operatorSaysFree() }
             )
         }
         // A sheet, not fullScreenCover, so the pass swipes away naturally;
@@ -1479,6 +1480,21 @@ struct HomeView: View {
             }
         }
         tryOpen(chain)
+    }
+
+    /// The operator's reply said no charge applies right now (Parkonic's
+    /// "Invalid Amount - Zero/Negative"): nothing to pay, so nothing to
+    /// nag about — treat this stop like a free arrival.
+    private func operatorSaysFree() {
+        showConfirm = false
+        paidViaParkin = false
+        extending = false
+        Diag.log("operator_free_reply", ["op": parkingOperator.rawValue,
+                                         "zone": zoneCode.uppercased()])
+        ActivityLog.log(.freeArrival, label: zoneCode.uppercased(), in: modelContext)
+        dismissed = true
+        syncProtection()
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     private func confirmPaid() {
