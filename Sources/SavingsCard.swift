@@ -255,7 +255,7 @@ struct SavingsLedgerView: View {
     /// Tier gate: the headline ticket is free; the story below (year lot,
     /// receipts, map, tallies) is the signed-in reward.
     @AppStorage("appleUserID") private var appleUserID = ""
-    private var fullAccess: Bool { presenterMode || !appleUserID.isEmpty }
+    private var fullAccess: Bool { !Account.signInRequired || presenterMode || !appleUserID.isEmpty }
     @State private var signInError: String?
 
     @State private var carsParked = false

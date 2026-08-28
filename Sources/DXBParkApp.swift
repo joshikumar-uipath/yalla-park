@@ -87,7 +87,7 @@ struct DXBParkApp: App {
                 // after onboarding and can't be swiped away — it dismisses
                 // itself the moment sign-in lands (appleUserID set).
                 .fullScreenCover(isPresented: Binding(
-                    get: { hasOnboarded && appleUserID.isEmpty },
+                    get: { Account.signInRequired && hasOnboarded && appleUserID.isEmpty },
                     set: { _ in }
                 )) {
                     SignInGateView()

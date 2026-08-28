@@ -9,7 +9,9 @@ enum Tier {
     /// The owner's demo profile counts as fully entitled — his device must
     /// look complete in a presentation without a sign-in dance.
     static var isEntitled: Bool {
-        Account.isSignedIn || UserDefaults.standard.bool(forKey: "presenterMode")
+        !Account.signInRequired
+            || Account.isSignedIn
+            || UserDefaults.standard.bool(forKey: "presenterMode")
     }
 
     // History windows: free keeps a week, signed-in keeps 90 days.

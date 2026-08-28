@@ -14,6 +14,11 @@ enum Account {
     }
     static var isSignedIn: Bool { userID != nil }
 
+    /// Master switch for the sign-in requirement. OFF (2026-08-25): Apple's
+    /// "Sign-Up Not Completed" is unresolved on the owner's device and the
+    /// app must be usable today. Flip to true to restore the gate + tiers.
+    static let signInRequired = false
+
     /// Owner allowlist: SHA-256 hex of Apple user IDs whose sign-in turns
     /// the demo profile on automatically (the owner's own devices — his
     /// "my login shows the testing data" request). Populated from the

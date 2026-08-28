@@ -25,7 +25,9 @@ final class TierTests: XCTestCase {
         super.tearDown()
     }
 
-    func testFreeTierGates() {
+    func testFreeTierGates() throws {
+        // While the sign-in requirement is switched off, everyone is entitled.
+        try XCTSkipUnless(Account.signInRequired, "sign-in requirement disabled")
         XCTAssertFalse(Tier.isEntitled)
         XCTAssertFalse(Tier.remembersZoneSpots)
         XCTAssertFalse(Tier.autoNudgeEnabled)
