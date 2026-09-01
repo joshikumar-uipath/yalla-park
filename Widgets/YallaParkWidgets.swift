@@ -1,12 +1,33 @@
 import WidgetKit
 import SwiftUI
 import ActivityKit
+import AppIntents
 
 @main
 struct YallaParkWidgetsBundle: WidgetBundle {
     var body: some Widget {
         ParkNowWidget()
         ParkingLiveActivity()
+        if #available(iOS 18.0, *) {
+            ParkNowControl()
+        }
+    }
+}
+
+// MARK: - Control Center / Lock Screen control (iOS 18+)
+
+/// "Just parked" as a Control Center button and Lock Screen control — the
+/// parked flow one press away without even unlocking to the Home Screen.
+@available(iOS 18.0, *)
+struct ParkNowControl: ControlWidget {
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: "com.avjoshi.dxbpark.parknow") {
+            ControlWidgetButton(action: OpenURLIntent(URL(string: "dxbpark://parked")!)) {
+                Label("Just parked", systemImage: "car.fill")
+            }
+        }
+        .displayName("Yalla Park")
+        .description("Check the zone and pay in two taps.")
     }
 }
 

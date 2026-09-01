@@ -278,7 +278,7 @@ struct HomeView: View {
                 }
                 .padding(.vertical, 9)
                 .padding(.horizontal, 13)
-                .background(pillBackground, in: Capsule())
+                .modifier(GlassCapsuleModifier(satellite: mapSatellite, fallback: pillBackground))
                 .shadow(color: pillShadow, radius: 6, y: 2)
                 Spacer(minLength: 8)
                 savingsPill
@@ -343,7 +343,7 @@ struct HomeView: View {
             }
             .padding(.vertical, 9)
             .padding(.horizontal, 12)
-            .background(pillBackground, in: Capsule())
+            .modifier(GlassCapsuleModifier(satellite: mapSatellite, fallback: pillBackground))
             .shadow(color: pillShadow, radius: 6, y: 2)
             .frame(minHeight: 44) // touch target ≥ 44pt even though the pill is slim
             .contentShape(Rectangle())
@@ -403,11 +403,7 @@ struct HomeView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Theme.sheetRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.sheetRadius, style: .continuous)
-                .strokeBorder(.white.opacity(0.5), lineWidth: 0.5)
-        )
+        .modifier(GlassSheetModifier(radius: Theme.sheetRadius))
         .shadow(color: .black.opacity(0.14), radius: 20, y: 10)
         .padding(.horizontal, 10)
         // Float clear of the iOS 26 hovering tab bar.
@@ -1736,4 +1732,43 @@ struct PressScaleStyle: ButtonStyle {
 extension CLLocationCoordinate2D {
     /// Default camera before the first fix — Al Barsha, Dubai.
     static let alBarsha = CLLocationCoordinate2D(latitude: 25.1124, longitude: 55.1965)
+}
+
+
+// MARK: - Liquid Glass (iOS 26) with graceful fallbacks
+
+/// Floating capsule overlays adopt iOS 26's Liquid Glass — the native
+/// material of the OS the app ships on. Older systems keep the material
+/// capsule; satellite imagery keeps its solid dark pill for legibility.
+struct GlassCapsuleModifier: ViewModifier {
+    let satellite: Bool
+    let fallback: AnyShapeStyle
+
+    func body(content: Content) -> some View {
+        if satellite {
+            content.background(fallback, in: Capsule())
+        } else if #available(iOS 26.0, *) {
+            content.glassEffect(.regular, in: Capsule())
+        } else {
+            content.background(.ultraThinMaterial, in: Capsule())
+        }
+    }
+}
+
+/// The bottom sheet as a glass slab on iOS 26; regular material before.
+struct GlassSheetModifier: ViewModifier {
+    let radius: CGFloat
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+        } else {
+            content
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: radius, style: .continuous)
+                        .strokeBorder(.white.opacity(0.5), lineWidth: 0.5)
+                )
+        }
+    }
 }
